@@ -1,0 +1,14 @@
+host: "127.0.0.1"
+port: 5432
+user: "postgres"
+password: ""
+dbname: "stake_indexer"
+sslmode: "disable"
+
+# Optional: use DSN directly, will override host/port/user/password/dbname/sslmode when set.
+# dsn: "host=127.0.0.1 port=5432 user=postgres password=<password> dbname=stake_indexer sslmode=disable"
+
+max_open_conns: 20
+max_idle_conns: 10
+conn_max_lifetime: "30m"
+conn_max_idle_time: "10m"

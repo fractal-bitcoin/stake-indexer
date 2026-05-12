@@ -1,0 +1,17 @@
+# Redis UTXO database (single node or cluster).
+# Single address means single-node mode.
+addrs: ["127.0.0.1:6379"]
+
+# DB index (single-node only)
+database: 0
+
+# Optional password
+password: ""
+
+dialTimeout: "10s"
+readTimeout: "30m"
+writeTimeout: "30m"
+idleTimeout: "30s"
+idleCheckFrequency: "10s"
+
+poolSize: 32

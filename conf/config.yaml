@@ -1,0 +1,33 @@
+index_start_height: 1760000
+batch_block_count: 500
+slow_lag_blocks: 20160
+proof_window: 20160
+delay_submit_trigger_blocks: 120
+start_reward_height: 1764000
+state_api_base_url: ""
+state_api_auth: ""
+state_api_timeout: 5s
+cold_wallet_address_keys: []
+indexer_allowlist_windows:
+  - start_height: 1764000
+    end_height: 1844640
+    indexer_ids: []
+reward_release_tiers:
+  - start_height: 1764000
+    release_percent: 30
+  - start_height: 1784160
+    release_percent: 37.5
+  - start_height: 1804320
+    release_percent: 45
+  - start_height: 1824480
+    release_percent: 52.5
+  - start_height: 1844640
+    release_percent: 60
+  - start_height: 1864800
+    release_percent: 70
+  - start_height: 1884960
+    release_percent: 80
+  - start_height: 1905120
+    release_percent: 90
+  - start_height: 1925280
+    release_percent: 100
