@@ -3,9 +3,12 @@ package indexer
 import (
 	"strings"
 
+	"stake_indexer/internal/component/log"
 	pgdb "stake_indexer/internal/component/pg"
 	entryfast "stake_indexer/internal/entry/fast"
 	protocolparser "stake_indexer/internal/parser/protocol"
+
+	"go.uber.org/zap"
 )
 
 const (
@@ -74,7 +77,67 @@ func (m *Manager) resolveBusinessInvalidFlags(currentHeight uint32, tx *protocol
 	if m == nil {
 		return BizInvalidUnknown
 	}
-	return entryfast.ResolveBusinessInvalidFlags(managerBusinessInvalidDeps{m: m}, currentHeight, tx, payload)
+	flags := entryfast.ResolveBusinessInvalidFlags(managerBusinessInvalidDeps{m: m}, currentHeight, tx, payload)
+	m.logRegisterAnalysisResult(currentHeight, tx, payload, flags)
+	return flags
+}
+
+func (m *Manager) logRegisterAnalysisResult(currentHeight uint32, tx *protocolparser.TxSnapshot, payload *protocolparser.OpReturnPayload, flags uint64) {
+	if payload == nil || payload.Tag != protocolparser.TagRegister {
+		return
+	}
+
+	fields := []zap.Field{
+		zap.Bool("valid", flags == BizInvalidNone),
+		zap.Uint64("biz_invalid_flags", flags),
+		zap.Strings("reasons", bizInvalidReasonNames(flags)),
+		zap.Uint32("height", currentHeight),
+		zap.String("user_address", normalizeUserAddress(payload.Get(protocolparser.OpFieldActorAddr))),
+		zap.String("reward_address", strings.TrimSpace(payload.Get(protocolparser.OpFieldRewardAddr))),
+		zap.String("index_ratio", strings.TrimSpace(payload.Get(protocolparser.OpFieldIndexRatio))),
+		zap.String("indexer_name", strings.TrimSpace(payload.Get(protocolparser.OpFieldIndexerName))),
+	}
+	if tx != nil {
+		fields = append(fields,
+			zap.String("txid", tx.TxID),
+			zap.Uint32("txidx", tx.TxIdx),
+		)
+	}
+
+	logger.Log.Info("register_indexer analysis result", fields...)
+}
+
+func bizInvalidReasonNames(flags uint64) []string {
+	if flags == BizInvalidNone {
+		return []string{"none"}
+	}
+
+	reasons := make([]string, 0, 6)
+	if flags&BizInvalidIndexerNotFound != 0 {
+		reasons = append(reasons, "indexer_not_found")
+	}
+	if flags&BizInvalidActorNotOwner != 0 {
+		reasons = append(reasons, "actor_not_owner")
+	}
+	if flags&BizInvalidRegisterRule != 0 {
+		reasons = append(reasons, "register_rule")
+	}
+	if flags&BizInvalidProofRule != 0 {
+		reasons = append(reasons, "proof_rule")
+	}
+	if flags&BizInvalidStakeRule != 0 {
+		reasons = append(reasons, "stake_rule")
+	}
+	if flags&BizInvalidClaimRule != 0 {
+		reasons = append(reasons, "claim_rule")
+	}
+	if flags&BizInvalidUnknown != 0 {
+		reasons = append(reasons, "unknown")
+	}
+	if len(reasons) == 0 {
+		reasons = append(reasons, "unmapped")
+	}
+	return reasons
 }
 
 func (m *Manager) resolveRegisterInvalidFlags(payload *protocolparser.OpReturnPayload) uint64 {
