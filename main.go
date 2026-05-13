@@ -21,6 +21,7 @@ import (
 	indexer "stake_indexer/internal/exec/manager"
 	"stake_indexer/lib/midware"
 	"stake_indexer/model"
+	"sync"
 	"syscall"
 	"time"
 
@@ -38,7 +39,10 @@ const (
 	mempoolLoopInterval = 2 * time.Second
 )
 
-var stakeManager *indexer.Manager
+var (
+	stakeManager        *indexer.Manager
+	stakeRewardSyncOnce sync.Once
+)
 
 func bootstrap() error {
 	if err := logger.Init(); err != nil {
@@ -75,6 +79,25 @@ func bootstrap() error {
 	return nil
 }
 
+func startStakeRewardSyncAfterCommitted(committedHeight uint32) {
+	stakeRewardSyncOnce.Do(func() {
+		logger.Log.Info("starting stake reward sync", zap.Uint32("committed_height", committedHeight))
+		go entryslow.SyncStakeRewardIndexer()
+	})
+}
+
+func startStakeRewardSyncIfCommitted() {
+	committedHeight, exists, err := pgdb.GetLatestCommittedSyncBlockHeight(context.Background())
+	if err != nil {
+		logger.Log.Warn("check committed block before starting stake reward sync failed", zap.Error(err))
+		return
+	}
+	if !exists {
+		return
+	}
+	startStakeRewardSyncAfterCommitted(committedHeight)
+}
+
 func syncBlockIndexer() {
 	stakeManager = indexer.NewManager(conf.StakeRewardCfg)
 	indexStartHeight := conf.StakeRewardCfg.IndexStartHeight
@@ -109,6 +132,7 @@ func syncBlockIndexer() {
 				nextHeight = indexStartHeight
 			}
 		}
+		startStakeRewardSyncIfCommitted()
 
 		loadBindingHeight := uint32(0)
 		if nextHeight > 0 {
@@ -186,6 +210,7 @@ func syncBlockIndexer() {
 		if model.NeedStop {
 			break
 		}
+		startStakeRewardSyncAfterCommitted(stageBlockHeight)
 
 		logger.Log.Info("syncBlockIndexer block range finished",
 			zap.Uint32("start", startHeight),
@@ -264,7 +289,6 @@ func main() {
 		}
 	}()
 
-	go entryslow.SyncStakeRewardIndexer()
 	syncBlockIndexer()
 
 	logger.SyncLog()
