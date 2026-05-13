@@ -103,6 +103,7 @@ Rules:
 - `reward_addr` is a valid Bitcoin mainnet address accepted by the parser
 - `name` is non-empty after trimming
 - `name` is truncated to at most 64 runes
+- each actor/user address may have at most one valid `register_indexer`; later registrations from the same actor/user address are business-invalid
 
 Normalized fields:
 
