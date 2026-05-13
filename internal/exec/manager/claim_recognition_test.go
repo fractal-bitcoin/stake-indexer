@@ -13,7 +13,7 @@ func TestBuildStakeClaimedReward_UsesSystemActorAndFirstOutput(t *testing.T) {
 	t.Cleanup(func() { conf.StakeRewardCfg = original })
 
 	cfg := conf.DefaultConfig()
-	cfg.ColdWalletAddressKey = []string{"system-wallet-address"}
+	cfg.RewardClaimSenderAddressKeys = []string{"reward-claim-sender-address"}
 	conf.StakeRewardCfg = cfg
 
 	m := NewManager(cfg)
@@ -27,7 +27,7 @@ func TestBuildStakeClaimedReward_UsesSystemActorAndFirstOutput(t *testing.T) {
 	payload := &protocolparser.OpReturnPayload{
 		Tag: protocolparser.TagPledgedReward,
 		Fields: map[string]string{
-			protocolparser.OpFieldActorAddr: "system-wallet-address",
+			protocolparser.OpFieldActorAddr: "reward-claim-sender-address",
 		},
 	}
 
@@ -51,7 +51,7 @@ func TestBuildStakeClaimedReward_RejectsNonSystemActor(t *testing.T) {
 	t.Cleanup(func() { conf.StakeRewardCfg = original })
 
 	cfg := conf.DefaultConfig()
-	cfg.ColdWalletAddressKey = []string{"system-wallet-address"}
+	cfg.RewardClaimSenderAddressKeys = []string{"reward-claim-sender-address"}
 	conf.StakeRewardCfg = cfg
 
 	m := NewManager(cfg)
@@ -79,7 +79,7 @@ func TestBuildStakeClaimedReward_RejectsNonSystemActor(t *testing.T) {
 }
 
 func TestParseFIP101PayloadFromCSV_ClaimWithoutIndexerID(t *testing.T) {
-	payload, _, err := protocolparser.ParseFIP101PayloadFromCSV([]byte("fip101,1,claim"), nil, "system-wallet-address", "")
+	payload, _, err := protocolparser.ParseFIP101PayloadFromCSV([]byte("fip101,1,claim"), nil, "reward-claim-sender-address", "")
 	if err != nil {
 		t.Fatalf("parseFIP101PayloadFromCSV returned error: %v", err)
 	}
@@ -95,7 +95,7 @@ func TestParseFIP101PayloadFromCSV_ClaimWithoutIndexerID(t *testing.T) {
 }
 
 func TestParseFIP101PayloadFromCSV_ClaimWithIndexerIDRejected(t *testing.T) {
-	payload, _, err := protocolparser.ParseFIP101PayloadFromCSV([]byte("fip101,1,claim,1:2"), nil, "system-wallet-address", "")
+	payload, _, err := protocolparser.ParseFIP101PayloadFromCSV([]byte("fip101,1,claim,1:2"), nil, "reward-claim-sender-address", "")
 	if err == nil {
 		t.Fatalf("expected error for claim with indexer_id, got payload: %#v", payload)
 	}
@@ -114,7 +114,7 @@ func TestParseFIP101PayloadFromCSV_RegisterQuotedCommaNameRejected(t *testing.T)
 	_, _, err := protocolparser.ParseFIP101PayloadFromCSV(
 		[]byte(`fip101,1,register,100,bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kg3g4ty,"hello,world"`),
 		nil,
-		"system-wallet-address",
+		"reward-claim-sender-address",
 		"",
 	)
 	if err == nil {

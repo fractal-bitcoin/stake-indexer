@@ -7,7 +7,7 @@ start_reward_height: 1764000
 state_api_base_url: ""
 state_api_auth: ""
 state_api_timeout: 5s
-cold_wallet_address_keys: []
+reward_claim_sender_address_keys: []
 indexer_allowlist_windows:
   - start_height: 1764000
     end_height: 1844640

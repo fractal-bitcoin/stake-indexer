@@ -25,20 +25,20 @@ type IndexerAllowlistWindow struct {
 }
 
 type StakeRewardConfigInfo struct {
-	RetryInterval            uint32
-	LoopInterval             uint32
-	BatchBlockCount          uint32
-	SlowLagBlocks            uint32
-	ProofWindow              uint32
-	DelaySubmitTriggerBlocks uint32
-	IndexStartHeight         uint32
-	StartRewardHeight        uint32
-	StateAPIBaseURL          string
-	StateAPIAuth             string
-	StateAPITimeout          time.Duration
-	ColdWalletAddressKey     []string
-	IndexerAllowlistWindows  []IndexerAllowlistWindow
-	RewardReleaseTiers       []RewardReleaseTier
+	RetryInterval                uint32
+	LoopInterval                 uint32
+	BatchBlockCount              uint32
+	SlowLagBlocks                uint32
+	ProofWindow                  uint32
+	DelaySubmitTriggerBlocks     uint32
+	IndexStartHeight             uint32
+	StartRewardHeight            uint32
+	StateAPIBaseURL              string
+	StateAPIAuth                 string
+	StateAPITimeout              time.Duration
+	RewardClaimSenderAddressKeys []string
+	IndexerAllowlistWindows      []IndexerAllowlistWindow
+	RewardReleaseTiers           []RewardReleaseTier
 }
 
 var (
@@ -61,16 +61,16 @@ func defaultRewardReleaseTiers() []RewardReleaseTier {
 
 func DefaultConfig() StakeRewardConfigInfo {
 	return StakeRewardConfigInfo{
-		BatchBlockCount:          500,
-		SlowLagBlocks:            20160,
-		ProofWindow:              20160,
-		DelaySubmitTriggerBlocks: 120,
-		IndexStartHeight:         1760000,
-		StartRewardHeight:        1764000,
-		StateAPITimeout:          5 * time.Second,
-		ColdWalletAddressKey:     nil,
-		IndexerAllowlistWindows:  nil,
-		RewardReleaseTiers:       defaultRewardReleaseTiers(),
+		BatchBlockCount:              500,
+		SlowLagBlocks:                20160,
+		ProofWindow:                  20160,
+		DelaySubmitTriggerBlocks:     120,
+		IndexStartHeight:             1760000,
+		StartRewardHeight:            1764000,
+		StateAPITimeout:              5 * time.Second,
+		RewardClaimSenderAddressKeys: nil,
+		IndexerAllowlistWindows:      nil,
+		RewardReleaseTiers:           defaultRewardReleaseTiers(),
 	}
 }
 
@@ -121,7 +121,7 @@ func Load(configFile string) (StakeRewardConfigInfo, error) {
 	if timeout := vp.GetDuration("state_api_timeout"); timeout > 0 {
 		cfg.StateAPITimeout = timeout
 	}
-	cfg.ColdWalletAddressKey = vp.GetStringSlice("cold_wallet_address_keys")
+	cfg.RewardClaimSenderAddressKeys = vp.GetStringSlice("reward_claim_sender_address_keys")
 
 	if vp.IsSet("indexer_allowlist_windows") {
 		windows, err := parseIndexerAllowlistWindows(vp.Get("indexer_allowlist_windows"))

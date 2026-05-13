@@ -73,7 +73,7 @@ Primary runtime settings include:
 - `state_api_base_url`
 - `state_api_auth`
 - `state_api_timeout`
-- `cold_wallet_address_keys`
+- `reward_claim_sender_address_keys`
 - `indexer_allowlist_windows`
 - `reward_release_tiers`
 
@@ -113,8 +113,8 @@ The values below describe runtime behavior. Example values in this section use `
   Request timeout for external state API calls.
   Default example: `5s`.
 
-- `cold_wallet_address_keys`
-  Optional list of configured cold-wallet address keys used by business logic that needs to recognize protected or reserved addresses.
+- `reward_claim_sender_address_keys`
+  Optional list of reward claim sender address keys. A `claim` inscription is recorded as a claimed reward only when its actor address matches one of these configured sender addresses. Leaving it empty disables claimed-reward recognition and does not affect reward allocation.
 
 - `indexer_allowlist_windows`
   Optional controlled-launch windows for indexer recognition. Each window has `start_height`, `end_height`, and `indexer_ids`. Windows are half-open: `start_height <= height < end_height`. When the current block height is inside a configured window, only listed indexer IDs are recognized; outside configured windows, all syntactically valid indexer IDs are recognized. This is intended for production launch phases with persisted state, not disposable test mode.

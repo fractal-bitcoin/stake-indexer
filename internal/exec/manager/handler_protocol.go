@@ -137,7 +137,7 @@ func isSystemClaimActorAddress(actorAddress string) bool {
 		return false
 	}
 
-	for _, configured := range conf.StakeRewardCfg.ColdWalletAddressKey {
+	for _, configured := range conf.StakeRewardCfg.RewardClaimSenderAddressKeys {
 		if strings.EqualFold(actorAddress, strings.TrimSpace(configured)) {
 			return true
 		}
