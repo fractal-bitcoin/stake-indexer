@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"stake_indexer/conf"
 	"stake_indexer/constant"
 	"stake_indexer/internal/component/node"
 	pgdb "stake_indexer/internal/component/pg"
@@ -361,6 +362,54 @@ func sortIndexerItems(items []IndexerListItem) {
 	})
 }
 
+func loadIndexerAllowlistFilterHeight() (uint32, bool, error) {
+	status, ok, err := loadIndexerStatusCache()
+	if err != nil {
+		return 0, false, err
+	}
+	if ok && status.LatestBlockHeight > 0 {
+		return status.LatestBlockHeight, true, nil
+	}
+
+	height, exists, err := pgdb.GetLatestCommittedSyncBlockHeight(ctx)
+	if err != nil {
+		return 0, false, err
+	}
+	return height, exists, nil
+}
+
+func filterIndexerItemsByAllowlist(items []IndexerListItem, height uint32, exists bool) ([]IndexerListItem, uint64) {
+	if !exists {
+		return items, sumIndexerTotalStaked(items)
+	}
+
+	filtered := make([]IndexerListItem, 0, len(items))
+	for _, item := range items {
+		if !conf.StakeRewardCfg.IsIndexerAllowedAtHeight(item.IndexerID, height) {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+
+	totalStaked := sumIndexerTotalStaked(filtered)
+	for i := range filtered {
+		if totalStaked == 0 {
+			filtered[i].StakeRatio = 0
+			continue
+		}
+		filtered[i].StakeRatio = float64(filtered[i].TotalStaked) / float64(totalStaked)
+	}
+	return filtered, totalStaked
+}
+
+func sumIndexerTotalStaked(items []IndexerListItem) uint64 {
+	total := uint64(0)
+	for _, item := range items {
+		total += item.TotalStaked
+	}
+	return total
+}
+
 func GetIndexers(c *gin.Context) (rData ResponseData, err error) {
 	var params PageReqParams
 	if err := c.ShouldBindQuery(&params); err != nil {
@@ -394,6 +443,14 @@ func GetIndexers(c *gin.Context) (rData ResponseData, err error) {
 		rData.Msg = err.Error()
 		return rData, err
 	}
+
+	filterHeight, filterHeightExists, err := loadIndexerAllowlistFilterHeight()
+	if err != nil {
+		rData.Code = errorCodeInternal
+		rData.Msg = err.Error()
+		return rData, err
+	}
+	items, totalStaked = filterIndexerItemsByAllowlist(items, filterHeight, filterHeightExists)
 
 	sortIndexerItems(items)
 
