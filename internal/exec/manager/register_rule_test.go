@@ -70,3 +70,71 @@ func TestResolveBusinessInvalidFlags_RegisterOwnerCaseSensitive(t *testing.T) {
 		t.Fatalf("second register with different-case owner should be valid in case-sensitive mode, got flags=%d", flags)
 	}
 }
+
+func TestResolveBusinessInvalidFlags_RegisterAllowlistWindow(t *testing.T) {
+	m := NewManager(conf.DefaultConfig())
+	m.resetRegisterOwnerSeen()
+
+	backup := conf.StakeRewardCfg
+	t.Cleanup(func() {
+		conf.StakeRewardCfg = backup
+	})
+
+	cfg := conf.DefaultConfig()
+	cfg.IndexerAllowlistWindows = []conf.IndexerAllowlistWindow{
+		{StartHeight: 100, EndHeight: 200, IndexerIDs: []string{"100:1"}},
+	}
+	conf.StakeRewardCfg = cfg
+
+	allowedPayload := &protocolparser.OpReturnPayload{
+		Tag: protocolparser.TagRegister,
+		Fields: map[string]string{
+			protocolparser.OpFieldActorAddr:  "owner-allowlisted",
+			protocolparser.OpFieldRewardAddr: "bc1qrewardaddr5555555555555555555555555555555555",
+			protocolparser.OpFieldIndexRatio: "0.50000000",
+		},
+	}
+	if flags := m.resolveBusinessInvalidFlagsWithRegisterAllowlist(100, &protocolparser.TxSnapshot{TxID: "tx-1", TxIdx: 1}, allowedPayload); flags != BizInvalidNone {
+		t.Fatalf("allowlisted register should be valid, got flags=%d", flags)
+	}
+
+	blockedPayload := &protocolparser.OpReturnPayload{
+		Tag: protocolparser.TagRegister,
+		Fields: map[string]string{
+			protocolparser.OpFieldActorAddr:  "owner-blocked",
+			protocolparser.OpFieldRewardAddr: "bc1qrewardaddr6666666666666666666666666666666666",
+			protocolparser.OpFieldIndexRatio: "0.60000000",
+		},
+	}
+	if flags := m.resolveBusinessInvalidFlagsWithRegisterAllowlist(100, &protocolparser.TxSnapshot{TxID: "tx-2", TxIdx: 2}, blockedPayload); flags != BizInvalidRegisterRule {
+		t.Fatalf("non-allowlisted register should be invalid, got flags=%d", flags)
+	}
+}
+
+func TestResolveBusinessInvalidFlags_RegisterAllowlistIgnoredWhenNotEnforced(t *testing.T) {
+	m := NewManager(conf.DefaultConfig())
+	m.resetRegisterOwnerSeen()
+
+	backup := conf.StakeRewardCfg
+	t.Cleanup(func() {
+		conf.StakeRewardCfg = backup
+	})
+
+	cfg := conf.DefaultConfig()
+	cfg.IndexerAllowlistWindows = []conf.IndexerAllowlistWindow{
+		{StartHeight: 100, EndHeight: 200, IndexerIDs: []string{"100:1"}},
+	}
+	conf.StakeRewardCfg = cfg
+
+	payload := &protocolparser.OpReturnPayload{
+		Tag: protocolparser.TagRegister,
+		Fields: map[string]string{
+			protocolparser.OpFieldActorAddr:  "owner-mempool-like",
+			protocolparser.OpFieldRewardAddr: "bc1qrewardaddr7777777777777777777777777777777777",
+			protocolparser.OpFieldIndexRatio: "0.70000000",
+		},
+	}
+	if flags := m.resolveBusinessInvalidFlags(100, &protocolparser.TxSnapshot{TxID: "tx-3", TxIdx: 2}, payload); flags != BizInvalidNone {
+		t.Fatalf("register allowlist should be ignored without enforcement, got flags=%d", flags)
+	}
+}

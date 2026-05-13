@@ -18,7 +18,7 @@ const (
 )
 
 type BusinessInvalidDeps interface {
-	ResolveRegisterInvalidFlags(payload *protocolparser.OpReturnPayload) uint64
+	ResolveRegisterInvalidFlags(currentHeight uint32, tx *protocolparser.TxSnapshot, payload *protocolparser.OpReturnPayload) uint64
 	ResolveOwnerAuthInvalidFlags(currentHeight uint32, payload *protocolparser.OpReturnPayload) uint64
 	BuildStakeProof(currentHeight uint32, tx *protocolparser.TxSnapshot, payload *protocolparser.OpReturnPayload) (bool, error)
 	ValidateStakeTx(currentHeight uint32, tx *protocolparser.TxSnapshot, payload *protocolparser.OpReturnPayload) (bool, error)
@@ -38,7 +38,7 @@ func ResolveBusinessInvalidFlags(deps BusinessInvalidDeps, currentHeight uint32,
 		if _, ok := protocolparser.ParseRatio(payload.Get(protocolparser.OpFieldIndexRatio)); !ok {
 			return BizInvalidRegisterRule
 		}
-		return deps.ResolveRegisterInvalidFlags(payload)
+		return deps.ResolveRegisterInvalidFlags(currentHeight, tx, payload)
 	case protocolparser.TagAllocatRatio:
 		return deps.ResolveOwnerAuthInvalidFlags(currentHeight, payload)
 	case protocolparser.TagProveStake:
