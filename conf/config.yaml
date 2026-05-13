@@ -11,7 +11,7 @@ reward_claim_sender_address_keys: []
 indexer_allowlist_windows:
   - start_height: 1764000
     end_height: 1844640
-    indexer_ids: ["1760748:1"]
+    indexer_ids: ["1761438:1"]
 reward_release_tiers:
   - start_height: 1764000
     release_percent: 30
