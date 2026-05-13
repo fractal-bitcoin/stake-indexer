@@ -1,9 +1,9 @@
 package indexer
 
 import (
-	progressTask "stake_indexer/internal/exec/manager/metrics"
 	"stake_indexer/internal/component/log"
 	"stake_indexer/internal/component/node"
+	progressTask "stake_indexer/internal/exec/manager/metrics"
 	"stake_indexer/internal/parser/node"
 	"stake_indexer/model"
 	"sync"
@@ -164,8 +164,6 @@ func (m *Manager) ParseLongestChainBlockEnd(blocksStage chan *model.Block) (last
 }
 
 func (m *Manager) InitLatestBlockFromRPC(startHeight, batch uint32) bool {
-	logger.Log.Debug("load block header from rpc", zap.Uint32("start", startHeight))
-
 	m.BlocksOfChainByHeight = make(map[uint32]*model.BlockIndexInfo, 0)
 	endHeight := startHeight + 1 + batch
 	blockInfos, ok := node.GetBlockIndexRangeRPC(startHeight, endHeight)
@@ -195,5 +193,3 @@ func (m *Manager) InitLatestBlockFromRPC(startHeight, batch uint32) bool {
 	}
 	return true
 }
-
-

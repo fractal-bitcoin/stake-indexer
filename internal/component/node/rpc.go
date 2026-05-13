@@ -135,11 +135,6 @@ func GetBlockIndexRangeRPC(startHeight, endHeight uint32) ([]*BlockIndexInfo, bo
 		return nil, false
 	}
 
-	logger.Log.Debug("fetch block index range",
-		zap.Uint32("startHeight", startHeight),
-		zap.Uint32("endHeight", endHeight),
-		zap.Int("count", len(blockIndexInfos)))
-
 	return blockIndexInfos, true
 }
 
@@ -243,4 +238,3 @@ func GetRawTxHexRPC(txID string) (string, error) {
 	}
 	return strings.TrimSpace(rawHex), nil
 }
-
