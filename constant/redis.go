@@ -12,11 +12,13 @@ const (
 	// Fast pipeline progress fields.
 	TASK_UTXO                     = "block_height_utxo"
 	TASK_SNAPSHOT_CONSUMER_HEIGHT = "snapshot:consumer_height"
+	TASK_PENDING_CONSUMER_HEIGHT  = "pending:consumer_height"
 	TASK_UTXO_TOTAL               = "utxo_total"
 
 	// Realtime and snapshot balance key prefixes.
-	BALANCE_REALTIME_PREFIX = "b"
-	BALANCE_SNAPSHOT_PREFIX = "balance:snapshot:"
+	BALANCE_REALTIME_PREFIX         = "b"
+	BALANCE_SNAPSHOT_PREFIX         = "balance:snapshot:"
+	BALANCE_PENDING_SNAPSHOT_PREFIX = "balance:pending:snapshot:"
 
 	INDEXER_ADDR_DELTA_PREFIX = "si:addr_delta:"
 
@@ -34,10 +36,16 @@ const (
 	// Stake-related redis keys.
 	REDIS_STAKE_INDEXER_INFO_PREFIX                       = "s:indexer:info:"
 	REDIS_STAKE_INDEXER_RATIO_SNAPSHOT_KEY                = "s:indexer:ratio:snapshot"
+	REDIS_STAKE_PENDING_INDEXER_INFO_PREFIX               = "s:pending:indexer:info:"
+	REDIS_STAKE_PENDING_INDEXER_RATIO_SNAPSHOT_KEY        = "s:pending:indexer:ratio:snapshot"
 	REDIS_STAKE_ADDRESS_REWARDS_PREFIX                    = "s:stake:rewards:"
 	REDIS_STAKE_ADDRESS_REWARDS_TOTAL_PREFIX              = "s:stake:rewards_total:"
 	REDIS_INDEXER_ADDRESS_REWARDS_PREFIX                  = "s:indexer:rewards:"
 	REDIS_INDEXER_ADDRESS_REWARDS_TOTAL_PREFIX            = "s:indexer:rewards_total:"
+	REDIS_STAKE_PENDING_ADDRESS_REWARDS_PREFIX            = "s:pending:stake:rewards:"
+	REDIS_STAKE_PENDING_ADDRESS_REWARDS_TOTAL_PREFIX      = "s:pending:stake:rewards_total:"
+	REDIS_INDEXER_PENDING_ADDRESS_REWARDS_PREFIX          = "s:pending:indexer:rewards:"
+	REDIS_INDEXER_PENDING_ADDRESS_REWARDS_TOTAL_PREFIX    = "s:pending:indexer:rewards_total:"
 	REDIS_STAKE_MEMPOOL_BALANCE_DELTA_KEY                 = "s:stake:mempool:balance_delta"
 	REDIS_STAKE_MEMPOOL_INDEXER_DELTA_KEY                 = "s:stake:mempool:indexer_delta"
 	REDIS_STAKE_MEMPOOL_INDEXER_STAKER_DELTA_PREFIX       = "s:stake:mempool:indexer_staker_delta:"
@@ -56,6 +64,10 @@ func GetSnapshotBalanceKey(address string) string {
 	return BALANCE_SNAPSHOT_PREFIX + address
 }
 
+func GetPendingSnapshotBalanceKey(address string) string {
+	return BALANCE_PENDING_SNAPSHOT_PREFIX + address
+}
+
 func GetIndexerStakeZsetKey(indexerID string) string {
 	return INDEXER_STAKE_ZSET_PREFIX + indexerID
 }
@@ -69,21 +81,41 @@ func GetIndexerInfoKey(indexerID string) string {
 	return REDIS_STAKE_INDEXER_INFO_PREFIX + indexerID
 }
 
+func GetPendingIndexerInfoKey(indexerID string) string {
+	return REDIS_STAKE_PENDING_INDEXER_INFO_PREFIX + indexerID
+}
+
 // GetStakeRewardsKey returns the per-address reward zset key.
 func GetStakeRewardsKey(userAddress string) string {
 	return REDIS_STAKE_ADDRESS_REWARDS_PREFIX + userAddress
+}
+
+func GetPendingStakeRewardsKey(userAddress string) string {
+	return REDIS_STAKE_PENDING_ADDRESS_REWARDS_PREFIX + userAddress
 }
 
 func GetStakeRewardsTotalKey(userAddress string) string {
 	return REDIS_STAKE_ADDRESS_REWARDS_TOTAL_PREFIX + userAddress
 }
 
+func GetPendingStakeRewardsTotalKey(userAddress string) string {
+	return REDIS_STAKE_PENDING_ADDRESS_REWARDS_TOTAL_PREFIX + userAddress
+}
+
 func GetIndexerRewardsKey(userAddress string) string {
 	return REDIS_INDEXER_ADDRESS_REWARDS_PREFIX + userAddress
 }
 
+func GetPendingIndexerRewardsKey(userAddress string) string {
+	return REDIS_INDEXER_PENDING_ADDRESS_REWARDS_PREFIX + userAddress
+}
+
 func GetIndexerRewardsTotalKey(userAddress string) string {
 	return REDIS_INDEXER_ADDRESS_REWARDS_TOTAL_PREFIX + userAddress
+}
+
+func GetPendingIndexerRewardsTotalKey(userAddress string) string {
+	return REDIS_INDEXER_PENDING_ADDRESS_REWARDS_TOTAL_PREFIX + userAddress
 }
 
 func GetStakeMempoolBalanceDeltaKey() string {

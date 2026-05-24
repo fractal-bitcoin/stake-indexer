@@ -106,6 +106,8 @@ type IndexerStatusResp struct {
 	StakeRewardSyncHeight       uint32 `json:"stake_reward_sync_height"`
 	LatestAllocatedRewardHeight uint32 `json:"latest_allocated_reward_height"`
 	LatestAllocatedRewardAmount uint64 `json:"latest_allocated_reward_amount"`
+	PendingRewardSyncHeight     uint32 `json:"pending_reward_sync_height"`
+	PendingRewardTotalAmount    uint64 `json:"pending_reward_total_amount"`
 }
 
 type MempoolProtocolTxItem struct {

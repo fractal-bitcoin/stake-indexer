@@ -123,8 +123,24 @@ func (m *Manager) stageHSet(key string, values map[string]interface{}) {
 		}
 		return
 	}
+	if strings.HasPrefix(key, constant.REDIS_STAKE_PENDING_INDEXER_INFO_PREFIX) {
+		indexerID := strings.TrimPrefix(key, constant.REDIS_STAKE_PENDING_INDEXER_INFO_PREFIX)
+		if raw, ok := values["index_ratio"]; ok {
+			if ratio, parsed := protocolparser.ParseRatio(fmt.Sprint(raw)); parsed {
+				m.slowState.latestRatio[indexerID] = ratio
+			}
+		}
+		return
+	}
 
 	if key == constant.REDIS_STAKE_INDEXER_RATIO_SNAPSHOT_KEY {
+		for indexerID, raw := range values {
+			if ratio, parsed := protocolparser.ParseRatio(fmt.Sprint(raw)); parsed {
+				m.slowState.snapRatio[indexerID] = ratio
+			}
+		}
+	}
+	if key == constant.REDIS_STAKE_PENDING_INDEXER_RATIO_SNAPSHOT_KEY {
 		for indexerID, raw := range values {
 			if ratio, parsed := protocolparser.ParseRatio(fmt.Sprint(raw)); parsed {
 				m.slowState.snapRatio[indexerID] = ratio

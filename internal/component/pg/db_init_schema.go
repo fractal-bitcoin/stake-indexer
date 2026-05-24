@@ -153,6 +153,27 @@ CREATE INDEX IF NOT EXISTS idx_stake_allocated_rewards_stake_address ON stake_al
 CREATE INDEX IF NOT EXISTS idx_stake_allocated_rewards_reward_type ON stake_allocated_rewards(reward_type);
 CREATE INDEX IF NOT EXISTS idx_stake_allocated_rewards_indexer_height ON stake_allocated_rewards(indexer_id, height DESC);
 
+CREATE TABLE IF NOT EXISTS stake_pending_rewards (
+    id BIGSERIAL PRIMARY KEY,
+    user_address TEXT NOT NULL,
+    indexer_id TEXT NOT NULL,
+    stake_address TEXT NOT NULL,
+    reward_type TEXT NOT NULL DEFAULT 'stake',
+    height BIGINT NOT NULL,
+    stake_amount_snapshot BIGINT NOT NULL,
+    stake_amount_effective BIGINT NOT NULL DEFAULT 0,
+    total_effective_stake BIGINT NOT NULL DEFAULT 0,
+    release_percent DOUBLE PRECISION NOT NULL DEFAULT 0,
+    block_reward_amount BIGINT NOT NULL DEFAULT 0,
+    indexer_ratio DOUBLE PRECISION NOT NULL DEFAULT 0,
+    pending_amount BIGINT NOT NULL,
+    UNIQUE (height, indexer_id, stake_address)
+);
+CREATE INDEX IF NOT EXISTS idx_stake_pending_rewards_user_address ON stake_pending_rewards(user_address);
+CREATE INDEX IF NOT EXISTS idx_stake_pending_rewards_stake_address ON stake_pending_rewards(stake_address);
+CREATE INDEX IF NOT EXISTS idx_stake_pending_rewards_reward_type ON stake_pending_rewards(reward_type);
+CREATE INDEX IF NOT EXISTS idx_stake_pending_rewards_indexer_height ON stake_pending_rewards(indexer_id, height DESC);
+
 CREATE TABLE IF NOT EXISTS stake_bindings (
     stake_address TEXT PRIMARY KEY,
     user_address TEXT NOT NULL,

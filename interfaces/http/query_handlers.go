@@ -1099,6 +1099,8 @@ func GetIndexerStatus(c *gin.Context) (rData ResponseData, err error) {
 		StakeRewardSyncHeight:       stakeRewardSyncHeight,
 		LatestAllocatedRewardHeight: latestAllocatedRewardHeight,
 		LatestAllocatedRewardAmount: latestAllocatedRewardAmount,
+		PendingRewardSyncHeight:     0,
+		PendingRewardTotalAmount:    0,
 	}
 	return rData, nil
 }
@@ -1240,11 +1242,13 @@ func loadIndexerStatusCache() (IndexerStatusResp, bool, error) {
 		"stake_reward_sync_height",
 		"latest_allocated_reward_height",
 		"latest_allocated_reward_amount",
+		"pending_reward_sync_height",
+		"pending_reward_total_amount",
 	).Result()
 	if err != nil && err != redis.Nil {
 		return IndexerStatusResp{}, false, err
 	}
-	if len(vals) != 7 {
+	if len(vals) != 9 {
 		return IndexerStatusResp{}, false, nil
 	}
 
@@ -1255,7 +1259,9 @@ func loadIndexerStatusCache() (IndexerStatusResp, bool, error) {
 	stakeRewardSyncHeight, ok4 := parseInt64Field(vals[4])
 	latestAllocatedRewardHeight, ok5 := parseInt64Field(vals[5])
 	latestAllocatedRewardAmount, ok6 := parseInt64Field(vals[6])
-	if !ok0 || !ok1 || !ok2 || !ok3 || !ok4 || !ok5 || !ok6 {
+	pendingRewardSyncHeight, ok7 := parseInt64Field(vals[7])
+	pendingRewardTotalAmount, ok8 := parseInt64Field(vals[8])
+	if !ok0 || !ok1 || !ok2 || !ok3 || !ok4 || !ok5 || !ok6 || !ok7 || !ok8 {
 		return IndexerStatusResp{}, false, nil
 	}
 	if totalIndexers < 0 {
@@ -1276,6 +1282,12 @@ func loadIndexerStatusCache() (IndexerStatusResp, bool, error) {
 	if latestAllocatedRewardAmount < 0 {
 		latestAllocatedRewardAmount = 0
 	}
+	if pendingRewardSyncHeight < 0 {
+		pendingRewardSyncHeight = 0
+	}
+	if pendingRewardTotalAmount < 0 {
+		pendingRewardTotalAmount = 0
+	}
 
 	resp := IndexerStatusResp{
 		TotalIndexers:               int(totalIndexers),
@@ -1284,6 +1296,8 @@ func loadIndexerStatusCache() (IndexerStatusResp, bool, error) {
 		StakeRewardSyncHeight:       uint32(stakeRewardSyncHeight),
 		LatestAllocatedRewardHeight: uint32(latestAllocatedRewardHeight),
 		LatestAllocatedRewardAmount: uint64(latestAllocatedRewardAmount),
+		PendingRewardSyncHeight:     uint32(pendingRewardSyncHeight),
+		PendingRewardTotalAmount:    uint64(pendingRewardTotalAmount),
 	}
 	return resp, true, nil
 }

@@ -71,6 +71,23 @@ func InitIndexerStatusCache(ctx context.Context) error {
 		}
 	}
 
+	pendingRewardSyncHeight := uint32(0)
+	if rawPendingSyncHeight, pendingSyncErr := rdb.RdbBalanceClient.HGet(ctx, constant.GetStakeIndexerStatusKey(), "pending_reward_sync_height").Result(); pendingSyncErr == nil {
+		if v, parseErr := strconv.ParseUint(strings.TrimSpace(rawPendingSyncHeight), 10, 32); parseErr == nil {
+			pendingRewardSyncHeight = uint32(v)
+		}
+	} else if pendingSyncErr != redis.Nil {
+		return fmt.Errorf("load pending reward sync height failed: %w", pendingSyncErr)
+	}
+	pendingRewardTotalAmount := uint64(0)
+	if rawPendingTotal, pendingTotalErr := rdb.RdbBalanceClient.HGet(ctx, constant.GetStakeIndexerStatusKey(), "pending_reward_total_amount").Result(); pendingTotalErr == nil {
+		if v, parseErr := strconv.ParseUint(strings.TrimSpace(rawPendingTotal), 10, 64); parseErr == nil {
+			pendingRewardTotalAmount = v
+		}
+	} else if pendingTotalErr != redis.Nil {
+		return fmt.Errorf("load pending reward total amount failed: %w", pendingTotalErr)
+	}
+
 	latestAllocatedRewardHeight := uint32(0)
 	latestAllocatedRewardAmount := uint64(0)
 	if h, exists, err := pgdb.GetLatestStakeAllocatedRewardHeight(ctx); err != nil {
@@ -109,6 +126,8 @@ func InitIndexerStatusCache(ctx context.Context) error {
 		"latest_allocated_reward_height": latestAllocatedRewardHeight,
 		"latest_allocated_reward_amount": latestAllocatedRewardAmount,
 		"reward_release_percent":         releasePercent,
+		"pending_reward_sync_height":     pendingRewardSyncHeight,
+		"pending_reward_total_amount":    pendingRewardTotalAmount,
 	}
 	if err := rdb.RdbBalanceClient.HSet(ctx, statusKey, fields).Err(); err != nil {
 		return fmt.Errorf("init indexer status cache failed: %w", err)

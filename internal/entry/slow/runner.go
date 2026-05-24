@@ -26,13 +26,18 @@ type RewardSyncManager interface {
 }
 
 var (
-	ctx               = context.Background()
-	rewardSyncManager RewardSyncManager
-	managerFactory    func(conf.StakeRewardConfigInfo) RewardSyncManager
+	ctx                   = context.Background()
+	rewardSyncManager     RewardSyncManager
+	managerFactory        func(conf.StakeRewardConfigInfo) RewardSyncManager
+	pendingManagerFactory func(conf.StakeRewardConfigInfo) RewardSyncManager
 )
 
 func SetManagerFactory(factory func(conf.StakeRewardConfigInfo) RewardSyncManager) {
 	managerFactory = factory
+}
+
+func SetPendingManagerFactory(factory func(conf.StakeRewardConfigInfo) RewardSyncManager) {
+	pendingManagerFactory = factory
 }
 
 func initRewardSyncManager() {
@@ -148,6 +153,9 @@ func SyncStakeRewardIndexer() {
 func EnsureManagerFactoryConfigured() error {
 	if managerFactory == nil {
 		return fmt.Errorf("entry/slow manager factory is not set")
+	}
+	if pendingManagerFactory == nil {
+		return fmt.Errorf("entry/slow pending manager factory is not set")
 	}
 	return nil
 }
