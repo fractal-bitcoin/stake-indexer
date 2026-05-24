@@ -19,6 +19,7 @@ import (
 )
 
 const stakeStatusRewardReleasePercentField = "reward_release_percent"
+const rewardTruncationEpsilon = 1e-9
 
 func payloadFromRatioEvent(event pgdb.FIP101InscriptionEvent) (*protocolparser.OpReturnPayload, bool) {
 	content := strings.TrimSpace(event.InscriptionContent)
@@ -164,11 +165,12 @@ func (m *Manager) handleBlockReward(block *protocolparser.BlockSnapshot) error {
 	if err != nil {
 		return err
 	}
+	useTruncation := shouldUseRewardTruncation(block.Height)
 	m.stageHSet(constant.GetStakeIndexerStatusKey(), map[string]interface{}{
 		stakeStatusRewardReleasePercentField: releasePercent,
 	})
 
-	unlockedRewardAmount := uint64(math.Round(float64(rewardAmount) * releasePercent / 100.0))
+	unlockedRewardAmount := quantizeReward(float64(rewardAmount)*releasePercent/100.0, useTruncation)
 	if unlockedRewardAmount == 0 {
 		return nil
 	}
@@ -185,14 +187,14 @@ func (m *Manager) handleBlockReward(block *protocolparser.BlockSnapshot) error {
 
 	for indexerID, weights := range indexerStakeTotal {
 		firstLayerRewardPercent := float64(weights.effective) / float64(totalEffectiveStake)
-		firstLayerReward := uint64(math.Round(float64(unlockedRewardAmount) * firstLayerRewardPercent))
+		firstLayerReward := quantizeReward(float64(unlockedRewardAmount)*firstLayerRewardPercent, useTruncation)
 
 		indexerRatio, err := m.getIndexerSnapshotRatio(indexerID)
 		if err != nil {
 			return err
 		}
 
-		indexerReward := uint64(math.Round(float64(firstLayerReward) * indexerRatio))
+		indexerReward := quantizeReward(float64(firstLayerReward)*indexerRatio, useTruncation)
 		if indexerReward > firstLayerReward {
 			indexerReward = firstLayerReward
 		}
@@ -240,7 +242,7 @@ func (m *Manager) handleBlockReward(block *protocolparser.BlockSnapshot) error {
 				continue
 			}
 			addressRewardPercent := float64(stakeAmount) / float64(weights.raw)
-			reward := uint64(math.Round(float64(addressRewardPool) * addressRewardPercent))
+			reward := quantizeReward(float64(addressRewardPool)*addressRewardPercent, useTruncation)
 			if reward == 0 {
 				continue
 			}
@@ -391,6 +393,20 @@ func (m *Manager) resolveRewardReleasePercent(height uint32) (float64, error) {
 func isRewardBlockVersion(version uint32) bool {
 	hexVersion := fmt.Sprintf("%08x", version)
 	return strings.HasPrefix(hexVersion, "2026") && len(hexVersion) > 5 && hexVersion[5] == '1'
+}
+
+func shouldUseRewardTruncation(height uint32) bool {
+	return height >= constant.REWARD_ALLOCATION_STAGE2_CHECKPOINT_HEIGHT
+}
+
+func quantizeReward(value float64, useTruncation bool) uint64 {
+	if value <= 0 {
+		return 0
+	}
+	if useTruncation {
+		return uint64(math.Floor(value + rewardTruncationEpsilon))
+	}
+	return uint64(math.Round(value))
 }
 
 func (m *Manager) resolveProofHashInputs(height uint32) (string, string, error) {

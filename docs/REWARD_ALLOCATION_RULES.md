@@ -150,12 +150,20 @@ When `unlocked_reward = 0`, no reward records are written for the block.
 
 ## Allocation Formula
 
+### Phase Switch
+
+Reward allocation has two phases separated by
+`REWARD_ALLOCATION_STAGE2_CHECKPOINT_HEIGHT` in `constant/constant.go`.
+
+- phase 1 (`height < checkpoint`): uses `round(...)`
+- phase 2 (`height >= checkpoint`): uses decimal truncation (floor) to avoid over-allocation
+
 ### First-Layer Allocation
 
 For each eligible indexer:
 
 ```text
-first_layer_reward_i = round(unlocked_reward * effective_stake_i / total_effective_stake)
+first_layer_reward_i = quantize(unlocked_reward * effective_stake_i / total_effective_stake)
 ```
 
 ### Indexer Share
@@ -165,7 +173,7 @@ The indexer commission ratio is read from the snapshot view for the processing h
 For each eligible indexer:
 
 ```text
-indexer_reward = round(first_layer_reward_i * index_ratio_snapshot)
+indexer_reward = quantize(first_layer_reward_i * index_ratio_snapshot)
 user_reward_pool = first_layer_reward_i - indexer_reward
 ```
 
@@ -176,7 +184,7 @@ If rounding produces `indexer_reward > first_layer_reward_i`, the value is cappe
 Staker rewards are distributed by raw stake share within the indexer:
 
 ```text
-user_reward_u = round(user_reward_pool * stake_u / raw_stake_i)
+user_reward_u = quantize(user_reward_pool * stake_u / raw_stake_i)
 ```
 
 ## Ratio Snapshot Timing
