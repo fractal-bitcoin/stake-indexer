@@ -157,6 +157,9 @@ Reward allocation has two phases separated by
 
 - phase 1 (`height < checkpoint`): uses `round(...)`
 - phase 2 (`height >= checkpoint`): uses decimal truncation (floor) to avoid over-allocation
+- proof settlement window switches at the same checkpoint:
+  - phase 1: use configured `proof_window`
+  - phase 2: fixed `REWARD_ALLOCATION_STAGE2_PROOF_WINDOW` (`1000`)
 
 ### First-Layer Allocation
 

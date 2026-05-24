@@ -93,7 +93,7 @@ func (m *Manager) handleBlockReward(block *protocolparser.BlockSnapshot) error {
 	validProofs, err := pgdb.ResolveStakeProofValidityByProveHeight(
 		m.ctx,
 		block.Height,
-		conf.StakeRewardCfg.ProofWindow,
+		resolveRewardProofWindow(block.Height),
 		blockHash,
 		stateHash,
 		conf.StakeRewardCfg.DelaySubmitTriggerBlocks,
@@ -397,6 +397,13 @@ func isRewardBlockVersion(version uint32) bool {
 
 func shouldUseRewardTruncation(height uint32) bool {
 	return height >= constant.REWARD_ALLOCATION_STAGE2_CHECKPOINT_HEIGHT
+}
+
+func resolveRewardProofWindow(height uint32) uint32 {
+	if shouldUseRewardTruncation(height) {
+		return constant.REWARD_ALLOCATION_STAGE2_PROOF_WINDOW
+	}
+	return conf.StakeRewardCfg.ProofWindow
 }
 
 func quantizeReward(value float64, useTruncation bool) uint64 {

@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"stake_indexer/conf"
 	"stake_indexer/constant"
 	"testing"
 )
@@ -24,5 +25,21 @@ func TestShouldUseRewardTruncation(t *testing.T) {
 	}
 	if !shouldUseRewardTruncation(checkpoint) {
 		t.Fatalf("checkpoint height should use truncation")
+	}
+}
+
+func TestResolveRewardProofWindow(t *testing.T) {
+	origin := conf.StakeRewardCfg
+	conf.StakeRewardCfg.ProofWindow = 20160
+	t.Cleanup(func() {
+		conf.StakeRewardCfg = origin
+	})
+
+	checkpoint := constant.REWARD_ALLOCATION_STAGE2_CHECKPOINT_HEIGHT
+	if got := resolveRewardProofWindow(checkpoint - 1); got != 20160 {
+		t.Fatalf("phase-1 proof window expected 20160, got %d", got)
+	}
+	if got := resolveRewardProofWindow(checkpoint); got != constant.REWARD_ALLOCATION_STAGE2_PROOF_WINDOW {
+		t.Fatalf("phase-2 proof window expected %d, got %d", constant.REWARD_ALLOCATION_STAGE2_PROOF_WINDOW, got)
 	}
 }
