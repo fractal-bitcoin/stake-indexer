@@ -96,43 +96,58 @@ func GetBlockIndexRangeRPC(startHeight, endHeight uint32) ([]*BlockIndexInfo, bo
 		return nil, false
 	}
 
-	response, err := rpcClient.Call("getblockindexrange", []interface{}{startHeight, endHeight})
-	if err != nil {
-		logger.Log.Info("RPC call failed",
-			zap.Error(err),
-			zap.Uint32("startHeight", startHeight),
-			zap.Uint32("endHeight", endHeight))
-		return nil, false
-	}
-
-	if response.Error != nil {
-		if response.Error.Code == -8 && strings.Contains(strings.ToLower(response.Error.Message), "start height exceeds current chain height") {
-			return make([]*BlockIndexInfo, 0), true
-		}
-		logger.Log.Info("RPC returned error",
-			zap.Uint32("startHeight", startHeight),
-			zap.Uint32("endHeight", endHeight),
-			zap.Any("error", response.Error))
-		return nil, false
+	if endHeight == startHeight {
+		return make([]*BlockIndexInfo, 0), true
 	}
 
 	blockIndexInfos := make([]*BlockIndexInfo, 0, endHeight-startHeight)
+	for height := endHeight - 1; height >= startHeight; height-- {
+		response, err := rpcClient.Call("getblockhash", []interface{}{height})
+		if err != nil {
+			logger.Log.Info("RPC call failed",
+				zap.Error(err),
+				zap.Uint32("height", height),
+				zap.Uint32("startHeight", startHeight),
+				zap.Uint32("endHeight", endHeight))
+			return nil, false
+		}
 
-	js, err := json.Marshal(response.Result)
-	if err != nil {
-		logger.Log.Info("invalid json",
-			zap.Uint32("startHeight", startHeight),
-			zap.Uint32("endHeight", endHeight),
-			zap.Any("result_type", fmt.Sprintf("%T", response.Result)))
-		return nil, false
+		if response.Error != nil {
+			if response.Error.Code == -8 && len(blockIndexInfos) == 0 {
+				if height == 0 {
+					return make([]*BlockIndexInfo, 0), true
+				}
+				continue
+			}
+			logger.Log.Info("RPC returned error",
+				zap.Uint32("height", height),
+				zap.Uint32("startHeight", startHeight),
+				zap.Uint32("endHeight", endHeight),
+				zap.Any("error", response.Error))
+			return nil, false
+		}
+
+		hashHex, ok := response.Result.(string)
+		if !ok || hashHex == "" {
+			logger.Log.Info("invalid getblockhash result",
+				zap.Uint32("height", height),
+				zap.Uint32("startHeight", startHeight),
+				zap.Uint32("endHeight", endHeight),
+				zap.Any("result_type", fmt.Sprintf("%T", response.Result)))
+			return nil, false
+		}
+
+		blockIndexInfos = append(blockIndexInfos, &BlockIndexInfo{
+			Height:  height,
+			HashHex: hashHex,
+		})
+
+		if height == 0 {
+			break
+		}
 	}
-
-	if err = json.Unmarshal(js, &blockIndexInfos); err != nil {
-		logger.Log.Info("invalid array",
-			zap.Uint32("startHeight", startHeight),
-			zap.Uint32("endHeight", endHeight),
-			zap.Error(err))
-		return nil, false
+	for left, right := 0, len(blockIndexInfos)-1; left < right; left, right = left+1, right-1 {
+		blockIndexInfos[left], blockIndexInfos[right] = blockIndexInfos[right], blockIndexInfos[left]
 	}
 
 	return blockIndexInfos, true
