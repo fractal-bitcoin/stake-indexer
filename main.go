@@ -67,8 +67,10 @@ func bootstrap() error {
 	if err := rdb.InitAll("conf/rdb_balance.yaml", "conf/rdb_utxo.yaml"); err != nil {
 		return fmt.Errorf("init redis failed: %w", err)
 	}
-	if err := idxbootstrap.ResetMempoolSnapshotOnStartup(context.Background()); err != nil {
-		return fmt.Errorf("reset mempool snapshot on startup failed: %w", err)
+	if conf.StakeRewardCfg.EnableMempoolIndexing {
+		if err := idxbootstrap.ResetMempoolSnapshotOnStartup(context.Background()); err != nil {
+			return fmt.Errorf("reset mempool snapshot on startup failed: %w", err)
+		}
 	}
 	if err := idxbootstrap.CleanupLegacyIndexerArtifactsOnStartup(context.Background()); err != nil {
 		return fmt.Errorf("cleanup legacy indexer artifacts on startup failed: %w", err)
@@ -102,6 +104,7 @@ func syncBlockIndexer() {
 	stakeManager = indexer.NewManager(conf.StakeRewardCfg)
 	indexStartHeight := conf.StakeRewardCfg.IndexStartHeight
 	logger.Log.Info("index start height", zap.Uint32("index_start_height", indexStartHeight))
+	logger.Log.Info("mempool indexing switch", zap.Bool("enabled", conf.StakeRewardCfg.EnableMempoolIndexing))
 
 	for {
 		if model.NeedStop {
@@ -156,28 +159,32 @@ func syncBlockIndexer() {
 
 		currentEndBlockHeight := stakeManager.MainChainHeight + 1
 		if currentEndBlockHeight <= nextHeight {
-			stats, err := entrymempool.Sync(stakeManager, stakeManager.MainChainHeight)
-			if err != nil {
-				logger.Log.Warn("syncBlockIndexer sync mempool proofs failed", zap.Error(err))
-				time.Sleep(retryInterval)
-				continue
-			}
-			if stats.Upserted > 0 || stats.Removed > 0 {
-				logger.Log.Info("syncBlockIndexer mempool proofs synced",
-					zap.Int("mempool_txs", stats.MempoolTxs),
-					zap.Int("proof_txs", stats.ProofTxs),
-					zap.Int("upserted", stats.Upserted),
-					zap.Int("removed", stats.Removed))
+			if conf.StakeRewardCfg.EnableMempoolIndexing {
+				stats, err := entrymempool.Sync(stakeManager, stakeManager.MainChainHeight)
+				if err != nil {
+					logger.Log.Warn("syncBlockIndexer sync mempool proofs failed", zap.Error(err))
+					time.Sleep(retryInterval)
+					continue
+				}
+				if stats.Upserted > 0 || stats.Removed > 0 {
+					logger.Log.Info("syncBlockIndexer mempool proofs synced",
+						zap.Int("mempool_txs", stats.MempoolTxs),
+						zap.Int("proof_txs", stats.ProofTxs),
+						zap.Int("upserted", stats.Upserted),
+						zap.Int("removed", stats.Removed))
+				}
 			}
 			time.Sleep(mempoolLoopInterval)
 			continue
 		}
 
 		startHeight := nextHeight
-		if err := idxbootstrap.ResetMempoolSnapshotOnStartup(context.Background()); err != nil {
-			logger.Log.Warn("syncBlockIndexer reset mempool snapshot before parsing blocks failed", zap.Error(err))
-			time.Sleep(retryInterval)
-			continue
+		if conf.StakeRewardCfg.EnableMempoolIndexing {
+			if err := idxbootstrap.ResetMempoolSnapshotOnStartup(context.Background()); err != nil {
+				logger.Log.Warn("syncBlockIndexer reset mempool snapshot before parsing blocks failed", zap.Error(err))
+				time.Sleep(retryInterval)
+				continue
+			}
 		}
 		idxrollback.ResetIndexerArtifactStage()
 		_, stageBlockHeight, txCount := stakeManager.ParseLongestChain(nextHeight, currentEndBlockHeight)

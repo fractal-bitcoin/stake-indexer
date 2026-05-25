@@ -1,6 +1,44 @@
 package conf
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func TestLoad_EnableMempoolIndexing_DefaultFalse(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.yaml")
+	content := "index_start_height: 1760000\n"
+	if err := os.WriteFile(configPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("write config failed: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	if cfg.EnableMempoolIndexing {
+		t.Fatalf("expected enable_mempool_indexing default false when not configured")
+	}
+}
+
+func TestLoad_EnableMempoolIndexing_True(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.yaml")
+	content := "enable_mempool_indexing: true\n"
+	if err := os.WriteFile(configPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("write config failed: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	if !cfg.EnableMempoolIndexing {
+		t.Fatalf("expected enable_mempool_indexing true when configured")
+	}
+}
 
 func TestIsIndexerAllowedAtHeight_AllowlistWindow(t *testing.T) {
 	cfg := DefaultConfig()
