@@ -24,7 +24,12 @@ const (
 	stakeStatusPendingRewardSyncHeight   = "pending_reward_sync_height"
 	stakeStatusPendingRewardTotalAmount  = "pending_reward_total_amount"
 )
-const rewardTruncationEpsilon = 1e-9
+const (
+	rewardTruncationEpsilon              = 1e-9
+	delaySubmitStage1StakePercent uint64 = 95
+	delaySubmitStage2StepBlocks   uint32 = 100
+	delaySubmitStage2StepPercent  uint64 = 10
+)
 
 func payloadFromRatioEvent(event pgdb.FIP101InscriptionEvent) (*protocolparser.OpReturnPayload, bool) {
 	content := strings.TrimSpace(event.InscriptionContent)
@@ -110,14 +115,18 @@ func (m *Manager) handleBlockReward(block *protocolparser.BlockSnapshot) error {
 		return nil
 	}
 
-	proofPenaltyByIndexer := make(map[string]bool, len(validProofs))
+	stakePercentByIndexer := make(map[string]uint64, len(validProofs))
 	for _, item := range validProofs {
 		if item.IndexerID == "" {
 			continue
 		}
-		proofPenaltyByIndexer[item.IndexerID] = proofPenaltyByIndexer[item.IndexerID] || item.VerifyStatus == pgdb.StakeProofVerifyValidDelayed
+		stakePercent := resolveDelaySubmitStakePercent(block.Height, item)
+		currentPercent, exists := stakePercentByIndexer[item.IndexerID]
+		if !exists || stakePercent < currentPercent {
+			stakePercentByIndexer[item.IndexerID] = stakePercent
+		}
 	}
-	if len(proofPenaltyByIndexer) == 0 {
+	if len(stakePercentByIndexer) == 0 {
 		return nil
 	}
 
@@ -127,12 +136,13 @@ func (m *Manager) handleBlockReward(block *protocolparser.BlockSnapshot) error {
 		penalized bool
 	}
 
-	indexerStakeTotal := make(map[string]indexerStakeWeight, len(proofPenaltyByIndexer))
+	indexerStakeTotal := make(map[string]indexerStakeWeight, len(stakePercentByIndexer))
 	totalEffectiveStake := uint64(0)
 	totalRawStake := uint64(0)
 
-	for indexerID, penalized := range proofPenaltyByIndexer {
-		logger.Log.Info("handleBlockReward", zap.String("indexer_id", indexerID), zap.Bool("delayed_valid_status", penalized))
+	for indexerID, stakePercent := range stakePercentByIndexer {
+		penalized := stakePercent < 100
+		logger.Log.Info("handleBlockReward", zap.String("indexer_id", indexerID), zap.Bool("delayed_valid_status", penalized), zap.Uint64("effective_stake_percent", stakePercent))
 		addrStakeAmount, err := m.getIndexerStakeAmount(indexerID)
 		if err != nil {
 			return err
@@ -149,10 +159,7 @@ func (m *Manager) handleBlockReward(block *protocolparser.BlockSnapshot) error {
 			continue
 		}
 
-		effectiveStake := rawStake
-		if penalized {
-			effectiveStake = rawStake * 95 / 100
-		}
+		effectiveStake := rawStake * stakePercent / 100
 		if effectiveStake == 0 {
 			continue
 		}
@@ -573,6 +580,25 @@ func resolveRewardProofWindow(height uint32) uint32 {
 		return constant.REWARD_ALLOCATION_STAGE2_PROOF_WINDOW
 	}
 	return conf.StakeRewardCfg.ProofWindow
+}
+
+func resolveDelaySubmitStakePercent(rewardHeight uint32, proof pgdb.StakeProof) uint64 {
+	if proof.VerifyStatus != pgdb.StakeProofVerifyValidDelayed {
+		return 100
+	}
+	if !shouldUseRewardTruncation(rewardHeight) {
+		return delaySubmitStage1StakePercent
+	}
+	if proof.Height <= proof.ProveBlockHeight || delaySubmitStage2StepBlocks == 0 {
+		return 100
+	}
+	delayedBlocks := proof.Height - proof.ProveBlockHeight
+	steps := uint64(delayedBlocks / delaySubmitStage2StepBlocks)
+	penaltyPercent := steps * delaySubmitStage2StepPercent
+	if penaltyPercent >= 100 {
+		return 0
+	}
+	return 100 - penaltyPercent
 }
 
 func quantizeReward(value float64, useTruncation bool) uint64 {

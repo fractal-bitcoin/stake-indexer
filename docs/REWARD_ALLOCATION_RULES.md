@@ -125,7 +125,8 @@ For each eligible indexer:
 
 Penalty rule:
 
-- when the indexer penalty flag is `true`, `effective_stake = raw_stake * 95 / 100`
+- in phase 1, when the indexer penalty flag is `true`, `effective_stake = raw_stake * 95 / 100`
+- in phase 2, when the indexer penalty flag is `true`, `effective_stake` decreases by 10% of `raw_stake` for every full 100 delayed blocks, down to 0%
 - otherwise, `effective_stake = raw_stake`
 
 Indexers with `effective_stake = 0` do not participate in allocation.

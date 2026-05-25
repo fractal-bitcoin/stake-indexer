@@ -3,6 +3,7 @@ package indexer
 import (
 	"stake_indexer/conf"
 	"stake_indexer/constant"
+	pgdb "stake_indexer/internal/component/pg"
 	"testing"
 )
 
@@ -41,5 +42,43 @@ func TestResolveRewardProofWindow(t *testing.T) {
 	}
 	if got := resolveRewardProofWindow(checkpoint); got != constant.REWARD_ALLOCATION_STAGE2_PROOF_WINDOW {
 		t.Fatalf("phase-2 proof window expected %d, got %d", constant.REWARD_ALLOCATION_STAGE2_PROOF_WINDOW, got)
+	}
+}
+
+func TestResolveDelaySubmitStakePercent(t *testing.T) {
+	checkpoint := constant.REWARD_ALLOCATION_STAGE2_CHECKPOINT_HEIGHT
+	proof := pgdb.StakeProof{
+		ProveBlockHeight: 1000,
+		Height:           1000,
+		VerifyStatus:     pgdb.StakeProofVerifyValidDelayed,
+	}
+
+	if got := resolveDelaySubmitStakePercent(checkpoint-1, proof); got != 95 {
+		t.Fatalf("phase-1 delayed stake percent expected 95, got %d", got)
+	}
+
+	cases := []struct {
+		delay uint32
+		want  uint64
+	}{
+		{99, 100},
+		{100, 90},
+		{199, 90},
+		{200, 80},
+		{900, 10},
+		{1000, 0},
+		{1100, 0},
+	}
+	for _, tc := range cases {
+		proof.Height = proof.ProveBlockHeight + tc.delay
+		if got := resolveDelaySubmitStakePercent(checkpoint, proof); got != tc.want {
+			t.Fatalf("stage-2 delay %d stake percent expected %d, got %d", tc.delay, tc.want, got)
+		}
+	}
+
+	proof.VerifyStatus = pgdb.StakeProofVerifyValid
+	proof.Height = proof.ProveBlockHeight + 1000
+	if got := resolveDelaySubmitStakePercent(checkpoint, proof); got != 100 {
+		t.Fatalf("non-delayed stake percent expected 100, got %d", got)
 	}
 }
