@@ -31,6 +31,7 @@ type StakeRewardConfigInfo struct {
 	SlowLagBlocks                uint32
 	ProofWindow                  uint32
 	DelaySubmitTriggerBlocks     uint32
+	EnableMempoolIndexing        bool
 	IndexStartHeight             uint32
 	StartRewardHeight            uint32
 	StateAPIBaseURL              string
@@ -110,6 +111,7 @@ func Load(configFile string) (StakeRewardConfigInfo, error) {
 	if delayBlocks := vp.GetUint32("delay_submit_trigger_blocks"); delayBlocks > 0 {
 		cfg.DelaySubmitTriggerBlocks = delayBlocks
 	}
+	cfg.EnableMempoolIndexing = vp.GetBool("enable_mempool_indexing")
 	if vp.IsSet("index_start_height") {
 		cfg.IndexStartHeight = vp.GetUint32("index_start_height")
 	}

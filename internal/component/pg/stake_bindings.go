@@ -42,16 +42,9 @@ INSERT INTO stake_bindings (
     stake_address, user_address, indexer_id, address_type,
     height, txid, tx_idx
 ) VALUES ($1,$2,$3,$4,$5,$6,$7)
-ON CONFLICT (stake_address) DO UPDATE
-SET
-    height = EXCLUDED.height,
-    txid = EXCLUDED.txid,
-    tx_idx = EXCLUDED.tx_idx
-WHERE stake_bindings.user_address = EXCLUDED.user_address
-  AND stake_bindings.indexer_id = EXCLUDED.indexer_id
-  AND stake_bindings.address_type = EXCLUDED.address_type
+ON CONFLICT (stake_address) DO NOTHING
 `
-	res, err := execer.ExecContext(
+	_, err := execer.ExecContext(
 		ctx,
 		sqlText,
 		item.StakeAddress,
@@ -64,9 +57,6 @@ WHERE stake_bindings.user_address = EXCLUDED.user_address
 	)
 	if err != nil {
 		return fmt.Errorf("insert stake binding failed: %w", err)
-	}
-	if rows, err := res.RowsAffected(); err == nil && rows == 0 {
-		return fmt.Errorf("insert stake binding conflict: stake_address=%s indexer_id=%s user_address=%s address_type=%s", item.StakeAddress, item.IndexerID, item.UserAddress, item.AddressType)
 	}
 	return nil
 }

@@ -44,7 +44,6 @@ The service uses Bitcoin RPC methods including:
 - `getblock`
 - `getrawtransaction`
 - `getrawtxmempool`
-- `getblockindexrange`
 
 Protocol parsing and address validation use Bitcoin mainnet address rules.
 
