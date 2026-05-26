@@ -2,7 +2,6 @@ package pgdb
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"math"
 )

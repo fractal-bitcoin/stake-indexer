@@ -40,8 +40,8 @@ func SyncPendingRewardIndexer() {
 	loopInterval := time.Duration(conf.StakeRewardCfg.LoopInterval) * time.Second
 	batchBlockCount := conf.StakeRewardCfg.BatchBlockCount
 	startHeight := conf.StakeRewardCfg.IndexStartHeight
-	if startHeight < constant.REWARD_ALLOCATION_STAGE2_CHECKPOINT_HEIGHT {
-		startHeight = constant.REWARD_ALLOCATION_STAGE2_CHECKPOINT_HEIGHT
+	if startHeight < conf.StakeRewardCfg.Stage2StartHeight {
+		startHeight = conf.StakeRewardCfg.Stage2StartHeight
 	}
 
 	initPendingRewardSyncManager()
@@ -78,7 +78,7 @@ func SyncPendingRewardIndexer() {
 		}
 
 		targetHeight := indexedHeight - 1000
-		if targetHeight < constant.REWARD_ALLOCATION_STAGE2_CHECKPOINT_HEIGHT {
+		if targetHeight < conf.StakeRewardCfg.Stage2StartHeight {
 			time.Sleep(loopInterval)
 			continue
 		}
@@ -152,7 +152,7 @@ func consumePendingRewardSnapshotBlock(height uint32) (bool, error) {
 	if syncBlock == nil || syncBlock.State != "committed" {
 		return false, nil
 	}
-	if height < constant.REWARD_ALLOCATION_STAGE2_CHECKPOINT_HEIGHT {
+	if height < conf.StakeRewardCfg.Stage2StartHeight {
 		return false, fmt.Errorf("pending reward consumer reached pre-stage2 height %d", height)
 	}
 

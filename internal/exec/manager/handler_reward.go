@@ -27,8 +27,6 @@ const (
 const (
 	rewardTruncationEpsilon              = 1e-9
 	delaySubmitStage1StakePercent uint64 = 95
-	delaySubmitStage2StepBlocks   uint32 = 100
-	delaySubmitStage2StepPercent  uint64 = 10
 )
 
 func payloadFromRatioEvent(event pgdb.FIP101InscriptionEvent) (*protocolparser.OpReturnPayload, bool) {
@@ -572,7 +570,7 @@ func isRewardBlockVersion(version uint32) bool {
 }
 
 func shouldUseRewardTruncation(height uint32) bool {
-	return height >= constant.REWARD_ALLOCATION_STAGE2_CHECKPOINT_HEIGHT
+	return height >= conf.StakeRewardCfg.Stage2StartHeight
 }
 
 func resolveRewardProofWindow(height uint32) uint32 {
@@ -589,12 +587,14 @@ func resolveDelaySubmitStakePercent(rewardHeight uint32, proof pgdb.StakeProof) 
 	if !shouldUseRewardTruncation(rewardHeight) {
 		return delaySubmitStage1StakePercent
 	}
-	if proof.Height <= proof.ProveBlockHeight || delaySubmitStage2StepBlocks == 0 {
+	stepBlocks := conf.StakeRewardCfg.DelaySubmitStage2StepBlocks
+	stepPercent := conf.StakeRewardCfg.DelaySubmitStage2StepPercent
+	if proof.Height <= proof.ProveBlockHeight || stepBlocks == 0 || stepPercent == 0 {
 		return 100
 	}
 	delayedBlocks := proof.Height - proof.ProveBlockHeight
-	steps := uint64(delayedBlocks / delaySubmitStage2StepBlocks)
-	penaltyPercent := steps * delaySubmitStage2StepPercent
+	steps := uint64(delayedBlocks / stepBlocks)
+	penaltyPercent := steps * stepPercent
 	if penaltyPercent >= 100 {
 		return 0
 	}

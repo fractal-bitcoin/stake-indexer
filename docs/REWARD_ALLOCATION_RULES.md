@@ -126,7 +126,7 @@ For each eligible indexer:
 Penalty rule:
 
 - in phase 1, when the indexer penalty flag is `true`, `effective_stake = raw_stake * 95 / 100`
-- in phase 2, when the indexer penalty flag is `true`, `effective_stake` decreases by 10% of `raw_stake` for every full 100 delayed blocks, down to 0%
+- in phase 2, when the indexer penalty flag is `true`, `effective_stake` decreases by `delay_submit_stage2_step_percent` percent of `raw_stake` for every full `delay_submit_stage2_step_blocks` delayed blocks, down to 0%
 - otherwise, `effective_stake = raw_stake`
 
 Indexers with `effective_stake = 0` do not participate in allocation.
@@ -154,13 +154,13 @@ When `unlocked_reward = 0`, no reward records are written for the block.
 ### Phase Switch
 
 Reward allocation has two phases separated by
-`REWARD_ALLOCATION_STAGE2_CHECKPOINT_HEIGHT` in `constant/constant.go`.
+`stage2_start_height` in `conf/config.yaml`.
 
-- phase 1 (`height < checkpoint`): uses `round(...)`
-- phase 2 (`height >= checkpoint`): uses decimal truncation (floor) to avoid over-allocation
+- phase 1 (`height < stage2_start_height`): uses `round(...)`
+- phase 2 (`height >= stage2_start_height`): uses decimal truncation (floor) to avoid over-allocation
 - proof settlement window switches at the same checkpoint:
   - phase 1: use configured `proof_window`
-  - phase 2: fixed `REWARD_ALLOCATION_STAGE2_PROOF_WINDOW` (`1000`)
+  - phase 2: use configured `delay_submit_stage2_step_blocks` and `delay_submit_stage2_step_percent` for delayed penalty, while proof window stays at `1000`
 
 ### First-Layer Allocation
 

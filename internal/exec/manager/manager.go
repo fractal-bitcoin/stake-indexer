@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"stake_indexer/conf"
-	"stake_indexer/constant"
 	pgdb "stake_indexer/internal/component/pg"
 	protocolparser "stake_indexer/internal/parser/protocol"
 	"stake_indexer/model"
@@ -58,8 +57,8 @@ func NewManager(cfg conf.StakeRewardConfigInfo) *Manager {
 }
 
 func NewPendingManager(cfg conf.StakeRewardConfigInfo) *Manager {
-	if cfg.IndexStartHeight < constant.REWARD_ALLOCATION_STAGE2_CHECKPOINT_HEIGHT {
-		cfg.IndexStartHeight = constant.REWARD_ALLOCATION_STAGE2_CHECKPOINT_HEIGHT
+	if cfg.IndexStartHeight < cfg.Stage2StartHeight {
+		cfg.IndexStartHeight = cfg.Stage2StartHeight
 	}
 	return newManagerWithMode(cfg, true)
 }

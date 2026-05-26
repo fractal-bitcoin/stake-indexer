@@ -3,6 +3,9 @@ batch_block_count: 500
 slow_lag_blocks: 20160
 proof_window: 20160
 delay_submit_trigger_blocks: 120
+delay_submit_stage2_step_blocks: 100
+delay_submit_stage2_step_percent: 10
+stage2_start_height: 1784160
 enable_mempool_indexing: false
 start_reward_height: 1764000
 state_api_base_url: ""

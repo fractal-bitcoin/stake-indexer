@@ -68,6 +68,9 @@ Primary runtime settings include:
 - `slow_lag_blocks`
 - `proof_window`
 - `delay_submit_trigger_blocks`
+- `delay_submit_stage2_step_blocks`
+- `delay_submit_stage2_step_percent`
+- `stage2_start_height`
 - `start_reward_height`
 - `state_api_base_url`
 - `state_api_auth`
@@ -95,8 +98,8 @@ The values below describe runtime behavior. Example values in this section use `
   Example with default `20160`: for reward height `1500000`, the service only checks proofs submitted in blocks `1500001` through `1520160`. A proof for `prove_block_height = 1500000` first appearing at height `1520161` is ignored for that reward round.
 
 - `delay_submit_trigger_blocks`
-  The threshold used to mark an otherwise valid proof as delayed. If a proof's submission height is more than `delay_submit_trigger_blocks` blocks after its `prove_block_height`, it is marked `valid_delayed`. In phase 1, the corresponding indexer receives a 5% effective-stake penalty during reward allocation. In phase 2, effective stake decreases by 10% of raw stake for every full 100 delayed blocks, down to 0%.
-  Example with default `120`: if a proof declares `prove_block_height = 1500000` and the proof transaction lands at height `1500100`, it is still treated as normal valid proof. If it lands at height `1500121`, it is marked delayed-valid; phase 1 reduces effective stake to `95%`, while phase 2 applies the 100-block step rule.
+  The threshold used to mark an otherwise valid proof as delayed. If a proof's submission height is more than `delay_submit_trigger_blocks` blocks after its `prove_block_height`, it is marked `valid_delayed`. In phase 1, the corresponding indexer receives a 5% effective-stake penalty during reward allocation. In phase 2, the step size and penalty percent are controlled by `delay_submit_stage2_step_blocks` and `delay_submit_stage2_step_percent`; default values are `100` and `10`.
+  Example with default `120`: if a proof declares `prove_block_height = 1500000` and the proof transaction lands at height `1500100`, it is still treated as normal valid proof. If it lands at height `1500121`, it is marked delayed-valid; phase 1 reduces effective stake to `95%`, while phase 2 applies the configured step rule.
 
 - `start_reward_height`
   The first block height from which reward allocation logic is allowed to produce reward records.

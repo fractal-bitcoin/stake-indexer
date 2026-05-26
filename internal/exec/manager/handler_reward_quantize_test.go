@@ -20,7 +20,7 @@ func TestQuantizeReward(t *testing.T) {
 }
 
 func TestShouldUseRewardTruncation(t *testing.T) {
-	checkpoint := constant.REWARD_ALLOCATION_STAGE2_CHECKPOINT_HEIGHT
+	checkpoint := conf.StakeRewardCfg.Stage2StartHeight
 	if shouldUseRewardTruncation(checkpoint - 1) {
 		t.Fatalf("height before checkpoint should use rounding")
 	}
@@ -36,7 +36,7 @@ func TestResolveRewardProofWindow(t *testing.T) {
 		conf.StakeRewardCfg = origin
 	})
 
-	checkpoint := constant.REWARD_ALLOCATION_STAGE2_CHECKPOINT_HEIGHT
+	checkpoint := conf.StakeRewardCfg.Stage2StartHeight
 	if got := resolveRewardProofWindow(checkpoint - 1); got != 20160 {
 		t.Fatalf("phase-1 proof window expected 20160, got %d", got)
 	}
@@ -46,7 +46,7 @@ func TestResolveRewardProofWindow(t *testing.T) {
 }
 
 func TestResolveDelaySubmitStakePercent(t *testing.T) {
-	checkpoint := constant.REWARD_ALLOCATION_STAGE2_CHECKPOINT_HEIGHT
+	checkpoint := conf.StakeRewardCfg.Stage2StartHeight
 	proof := pgdb.StakeProof{
 		ProveBlockHeight: 1000,
 		Height:           1000,
@@ -80,5 +80,24 @@ func TestResolveDelaySubmitStakePercent(t *testing.T) {
 	proof.Height = proof.ProveBlockHeight + 1000
 	if got := resolveDelaySubmitStakePercent(checkpoint, proof); got != 100 {
 		t.Fatalf("non-delayed stake percent expected 100, got %d", got)
+	}
+}
+
+func TestResolveDelaySubmitStakePercent_Configurable(t *testing.T) {
+	origin := conf.StakeRewardCfg
+	conf.StakeRewardCfg.DelaySubmitStage2StepBlocks = 50
+	conf.StakeRewardCfg.DelaySubmitStage2StepPercent = 20
+	t.Cleanup(func() {
+		conf.StakeRewardCfg = origin
+	})
+
+	checkpoint := conf.StakeRewardCfg.Stage2StartHeight
+	proof := pgdb.StakeProof{
+		ProveBlockHeight: 1000,
+		Height:           1100,
+		VerifyStatus:     pgdb.StakeProofVerifyValidDelayed,
+	}
+	if got := resolveDelaySubmitStakePercent(checkpoint, proof); got != 60 {
+		t.Fatalf("expected configurable stage-2 percent 60, got %d", got)
 	}
 }
