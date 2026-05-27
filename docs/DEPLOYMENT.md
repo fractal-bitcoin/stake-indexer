@@ -66,6 +66,7 @@ Primary runtime settings include:
 - `index_start_height`
 - `batch_block_count`
 - `slow_lag_blocks`
+- `pending_reward_lag_blocks`
 - `proof_window`
 - `delay_submit_trigger_blocks`
 - `delay_submit_stage2_step_blocks`
@@ -92,6 +93,10 @@ The values below describe runtime behavior. Example values in this section use `
 - `slow_lag_blocks`
   The number of committed main-indexer blocks that the reward snapshot consumer intentionally stays behind. The reward sync loop only consumes heights up to `latest_committed_sync_block_height - slow_lag_blocks`, so it never follows the main indexer all the way to the current committed tip.
   Example with default `20160`: if the latest committed block in `sync_blocks` is `1525000`, the reward snapshot loop will only advance up to height `1504840`. Heights above `1504840` are deferred until the main indexer has moved further ahead.
+
+- `pending_reward_lag_blocks`
+  The number of committed main-indexer blocks that the pending reward snapshot consumer intentionally stays behind. The pending reward sync loop only consumes heights up to `latest_committed_sync_block_height - pending_reward_lag_blocks`.
+  Example with default `1000`: if the latest committed block in `sync_blocks` is `1525000`, the pending reward snapshot loop will only advance up to height `1524000`.
 
 - `proof_window`
   The maximum block-distance after `prove_block_height` within which a proof transaction is still considered for that reward height. When rewards are computed for height `H`, the service loads proofs with `prove_block_height = H` and `proof_tx_height > H` and `proof_tx_height <= H + proof_window`.

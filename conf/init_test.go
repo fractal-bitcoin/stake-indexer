@@ -60,6 +60,23 @@ func TestLoad_DelaySubmitStage2Config(t *testing.T) {
 	}
 }
 
+func TestLoad_PendingRewardLagBlocks(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.yaml")
+	content := "pending_reward_lag_blocks: 1200\n"
+	if err := os.WriteFile(configPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("write config failed: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	if cfg.PendingRewardLagBlocks != 1200 {
+		t.Fatalf("expected pending_reward_lag_blocks 1200, got %d", cfg.PendingRewardLagBlocks)
+	}
+}
+
 func TestLoad_Stage2StartHeight(t *testing.T) {
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "config.yaml")

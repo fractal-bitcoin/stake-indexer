@@ -39,6 +39,7 @@ func SyncPendingRewardIndexer() {
 	retryInterval := time.Duration(conf.StakeRewardCfg.RetryInterval) * time.Second
 	loopInterval := time.Duration(conf.StakeRewardCfg.LoopInterval) * time.Second
 	batchBlockCount := conf.StakeRewardCfg.BatchBlockCount
+	pendingLagBlocks := conf.StakeRewardCfg.PendingRewardLagBlocks
 	startHeight := conf.StakeRewardCfg.IndexStartHeight
 	if startHeight < conf.StakeRewardCfg.Stage2StartHeight {
 		startHeight = conf.StakeRewardCfg.Stage2StartHeight
@@ -72,12 +73,12 @@ func SyncPendingRewardIndexer() {
 			time.Sleep(retryInterval)
 			continue
 		}
-		if !exists || indexedHeight <= 1000 {
+		if !exists || indexedHeight <= pendingLagBlocks {
 			time.Sleep(retryInterval)
 			continue
 		}
 
-		targetHeight := indexedHeight - 1000
+		targetHeight := indexedHeight - pendingLagBlocks
 		if targetHeight < conf.StakeRewardCfg.Stage2StartHeight {
 			time.Sleep(loopInterval)
 			continue

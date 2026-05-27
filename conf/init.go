@@ -29,6 +29,7 @@ type StakeRewardConfigInfo struct {
 	LoopInterval                 uint32
 	BatchBlockCount              uint32
 	SlowLagBlocks                uint32
+	PendingRewardLagBlocks       uint32
 	ProofWindow                  uint32
 	DelaySubmitTriggerBlocks     uint32
 	DelaySubmitStage2StepBlocks  uint32
@@ -67,6 +68,7 @@ func DefaultConfig() StakeRewardConfigInfo {
 	return StakeRewardConfigInfo{
 		BatchBlockCount:              500,
 		SlowLagBlocks:                20160,
+		PendingRewardLagBlocks:       1000,
 		ProofWindow:                  20160,
 		DelaySubmitTriggerBlocks:     120,
 		DelaySubmitStage2StepBlocks:  100,
@@ -110,6 +112,9 @@ func Load(configFile string) (StakeRewardConfigInfo, error) {
 	}
 	if lag := vp.GetUint32("slow_lag_blocks"); lag > 0 {
 		cfg.SlowLagBlocks = lag
+	}
+	if lag := vp.GetUint32("pending_reward_lag_blocks"); lag > 0 {
+		cfg.PendingRewardLagBlocks = lag
 	}
 	if proofWindow := vp.GetUint32("proof_window"); proofWindow > 0 {
 		cfg.ProofWindow = proofWindow
