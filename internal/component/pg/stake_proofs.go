@@ -232,6 +232,26 @@ WHERE txid = $2
 	return validProofs, nil
 }
 
+func ResolveStakeProofValidityByProveHeightReadOnly(ctx context.Context, proveBlockHeight, proofWindow uint32, blockHash, stateHash string, delaySubmitTriggerBlocks uint32) ([]StakeProof, error) {
+	if StakeDB == nil {
+		return nil, nil
+	}
+
+	proofs, err := ListStakeProofByProveHeight(ctx, proveBlockHeight, proofWindow)
+	if err != nil {
+		return nil, err
+	}
+	if len(proofs) == 0 {
+		return nil, nil
+	}
+
+	validProofs, _, err := resolveStakeProofValidity(proofs, blockHash, stateHash, delaySubmitTriggerBlocks)
+	if err != nil {
+		return nil, err
+	}
+	return validProofs, nil
+}
+
 type hashGroup struct {
 	latest     *StakeProof
 	duplicates []*StakeProof

@@ -57,9 +57,6 @@ func NewManager(cfg conf.StakeRewardConfigInfo) *Manager {
 }
 
 func NewPendingManager(cfg conf.StakeRewardConfigInfo) *Manager {
-	if cfg.IndexStartHeight < cfg.Stage2StartHeight {
-		cfg.IndexStartHeight = cfg.Stage2StartHeight
-	}
 	return newManagerWithMode(cfg, true)
 }
 

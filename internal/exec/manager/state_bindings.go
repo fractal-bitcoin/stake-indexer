@@ -47,32 +47,22 @@ func (m *Manager) LoadStakeBindingsToHeight(height uint32, withBalance bool) err
 	if withBalance {
 		pipe := rdb.RdbBalanceClient.Pipeline()
 		defer pipe.Close()
-		type balanceCmdPair struct {
-			primary  *redis.StringCmd
-			fallback *redis.StringCmd
-		}
-		balanceCmds := make(map[string]balanceCmdPair, len(items))
+		balanceCmds := make(map[string]*redis.StringCmd, len(items))
 		for _, item := range items {
 			if m.pendingRewardMode {
-				balanceCmds[item.StakeAddress] = balanceCmdPair{
-					primary:  pipe.Get(m.ctx, constant.GetPendingSnapshotBalanceKey(item.StakeAddress)),
-					fallback: pipe.Get(m.ctx, constant.GetSnapshotBalanceKey(item.StakeAddress)),
-				}
+				// Pending reward flow must not bootstrap from shared snapshot balances.
+				// It should rebuild its own pending snapshot balances from configured start height.
+				balanceCmds[item.StakeAddress] = pipe.Get(m.ctx, constant.GetPendingSnapshotBalanceKey(item.StakeAddress))
 				continue
 			}
-			balanceCmds[item.StakeAddress] = balanceCmdPair{
-				primary: pipe.Get(m.ctx, constant.GetSnapshotBalanceKey(item.StakeAddress)),
-			}
+			balanceCmds[item.StakeAddress] = pipe.Get(m.ctx, constant.GetSnapshotBalanceKey(item.StakeAddress))
 		}
 		if _, err := pipe.Exec(m.ctx); err != nil && err != redis.Nil {
 			logger.Log.Error("load snapshot balance failed", zap.Error(err), zap.Int("height", int(height)))
 			return err
 		}
-		for stakeAddress, cmdPair := range balanceCmds {
-			balance, err := cmdPair.primary.Result()
-			if err == redis.Nil && cmdPair.fallback != nil {
-				balance, err = cmdPair.fallback.Result()
-			}
+		for stakeAddress, cmd := range balanceCmds {
+			balance, err := cmd.Result()
 			if err != nil && err != redis.Nil {
 				logger.Log.Error("load snapshot balance failed", zap.Error(err), zap.String("address", stakeAddress))
 				return err

@@ -1,7 +1,6 @@
 package slow
 
 import (
-	"fmt"
 	"stake_indexer/conf"
 	"stake_indexer/constant"
 	logger "stake_indexer/internal/component/log"
@@ -41,9 +40,6 @@ func SyncPendingRewardIndexer() {
 	batchBlockCount := conf.StakeRewardCfg.BatchBlockCount
 	pendingLagBlocks := conf.StakeRewardCfg.PendingRewardLagBlocks
 	startHeight := conf.StakeRewardCfg.IndexStartHeight
-	if startHeight < conf.StakeRewardCfg.Stage2StartHeight {
-		startHeight = conf.StakeRewardCfg.Stage2StartHeight
-	}
 
 	initPendingRewardSyncManager()
 
@@ -79,10 +75,6 @@ func SyncPendingRewardIndexer() {
 		}
 
 		targetHeight := indexedHeight - pendingLagBlocks
-		if targetHeight < conf.StakeRewardCfg.Stage2StartHeight {
-			time.Sleep(loopInterval)
-			continue
-		}
 		if targetHeight < nextHeight {
 			time.Sleep(loopInterval)
 			continue
@@ -153,9 +145,6 @@ func consumePendingRewardSnapshotBlock(height uint32) (bool, error) {
 	if syncBlock == nil || syncBlock.State != "committed" {
 		return false, nil
 	}
-	if height < conf.StakeRewardCfg.Stage2StartHeight {
-		return false, fmt.Errorf("pending reward consumer reached pre-stage2 height %d", height)
-	}
 
 	if err := pendingRewardSyncManager.LoadStakeBindingsToHeight(height, true); err != nil {
 		return false, err
@@ -178,13 +167,15 @@ func consumePendingRewardSnapshotBlock(height uint32) (bool, error) {
 	if err := pendingRewardSyncManager.ApplyFIP101EventsForSnapshot(height, events); err != nil {
 		return false, err
 	}
-	if err := pendingRewardSyncManager.SubmitBalanceBlock(protocolparser.BlockSnapshot{
-		Height:         syncBlock.Height,
-		HashHex:        syncBlock.BlockHash,
-		Version:        syncBlock.Version,
-		CoinbaseReward: syncBlock.CoinbaseReward,
-	}); err != nil {
-		return false, err
+	if height >= conf.StakeRewardCfg.Stage2StartHeight {
+		if err := pendingRewardSyncManager.SubmitBalanceBlock(protocolparser.BlockSnapshot{
+			Height:         syncBlock.Height,
+			HashHex:        syncBlock.BlockHash,
+			Version:        syncBlock.Version,
+			CoinbaseReward: syncBlock.CoinbaseReward,
+		}); err != nil {
+			return false, err
+		}
 	}
 	if err := runPendingRewardSnapshotWriteFlow(height, deltas); err != nil {
 		return false, err

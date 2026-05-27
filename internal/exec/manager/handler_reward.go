@@ -98,14 +98,7 @@ func (m *Manager) handleBlockReward(block *protocolparser.BlockSnapshot) error {
 	if err != nil {
 		return fmt.Errorf("resolve proof hash inputs failed: %w", err)
 	}
-	validProofs, err := pgdb.ResolveStakeProofValidityByProveHeight(
-		m.ctx,
-		block.Height,
-		resolveRewardProofWindow(block.Height),
-		blockHash,
-		stateHash,
-		conf.StakeRewardCfg.DelaySubmitTriggerBlocks,
-	)
+	validProofs, err := m.resolveStakeProofValidityForReward(block.Height, blockHash, stateHash)
 	if err != nil {
 		return fmt.Errorf("resolve proof validity failed: %w", err)
 	}
@@ -341,6 +334,27 @@ func (m *Manager) handleBlockReward(block *protocolparser.BlockSnapshot) error {
 		}
 	}
 	return nil
+}
+
+func (m *Manager) resolveStakeProofValidityForReward(height uint32, blockHash, stateHash string) ([]pgdb.StakeProof, error) {
+	if m != nil && m.pendingRewardMode {
+		return pgdb.ResolveStakeProofValidityByProveHeightReadOnly(
+			m.ctx,
+			height,
+			resolveRewardProofWindow(height),
+			blockHash,
+			stateHash,
+			conf.StakeRewardCfg.DelaySubmitTriggerBlocks,
+		)
+	}
+	return pgdb.ResolveStakeProofValidityByProveHeight(
+		m.ctx,
+		height,
+		resolveRewardProofWindow(height),
+		blockHash,
+		stateHash,
+		conf.StakeRewardCfg.DelaySubmitTriggerBlocks,
+	)
 }
 
 func (m *Manager) getIndexerInfoKey(indexerID string) string {
