@@ -27,7 +27,7 @@ func TestResolveBusinessInvalidFlags_RegisterOwnerOnlyOneIndexer(t *testing.T) {
 		Fields: map[string]string{
 			protocolparser.OpFieldActorAddr:  "owner-address-1",
 			protocolparser.OpFieldRewardAddr: "bc1qrewardaddr2222222222222222222222222222222222",
-			protocolparser.OpFieldIndexRatio: "0.20000000",
+			protocolparser.OpFieldIndexRatio: "0.12000000",
 		},
 	}
 
@@ -36,6 +36,24 @@ func TestResolveBusinessInvalidFlags_RegisterOwnerOnlyOneIndexer(t *testing.T) {
 	}
 	if flags := m.resolveBusinessInvalidFlags(100, tx2, payload2); flags != BizInvalidRegisterRule {
 		t.Fatalf("second register with same owner should be invalid, got flags=%d", flags)
+	}
+}
+
+func TestResolveBusinessInvalidFlags_RegisterRejectsCommissionAboveLimit(t *testing.T) {
+	m := NewManager(conf.DefaultConfig())
+	m.resetRegisterOwnerSeen()
+
+	payload := &protocolparser.OpReturnPayload{
+		Tag: protocolparser.TagRegister,
+		Fields: map[string]string{
+			protocolparser.OpFieldActorAddr:  "owner-high-ratio",
+			protocolparser.OpFieldRewardAddr: "bc1qrewardaddr8888888888888888888888888888888888",
+			protocolparser.OpFieldIndexRatio: "0.16000000",
+		},
+	}
+	flags := m.resolveBusinessInvalidFlags(100, &protocolparser.TxSnapshot{TxID: "tx-high-ratio", TxIdx: 8}, payload)
+	if flags != BizInvalidRegisterRule {
+		t.Fatalf("register with ratio above 15%% should be invalid, got flags=%d", flags)
 	}
 }
 
@@ -51,7 +69,7 @@ func TestResolveBusinessInvalidFlags_RegisterOwnerCaseSensitive(t *testing.T) {
 		Fields: map[string]string{
 			protocolparser.OpFieldActorAddr:  "Owner-Address-Case",
 			protocolparser.OpFieldRewardAddr: "bc1qrewardaddr3333333333333333333333333333333333",
-			protocolparser.OpFieldIndexRatio: "0.30000000",
+			protocolparser.OpFieldIndexRatio: "0.13000000",
 		},
 	}
 	payload2 := &protocolparser.OpReturnPayload{
@@ -59,7 +77,7 @@ func TestResolveBusinessInvalidFlags_RegisterOwnerCaseSensitive(t *testing.T) {
 		Fields: map[string]string{
 			protocolparser.OpFieldActorAddr:  "owner-address-case",
 			protocolparser.OpFieldRewardAddr: "bc1qrewardaddr4444444444444444444444444444444444",
-			protocolparser.OpFieldIndexRatio: "0.40000000",
+			protocolparser.OpFieldIndexRatio: "0.14000000",
 		},
 	}
 
@@ -91,7 +109,7 @@ func TestResolveBusinessInvalidFlags_RegisterAllowlistWindow(t *testing.T) {
 		Fields: map[string]string{
 			protocolparser.OpFieldActorAddr:  "owner-allowlisted",
 			protocolparser.OpFieldRewardAddr: "bc1qrewardaddr5555555555555555555555555555555555",
-			protocolparser.OpFieldIndexRatio: "0.50000000",
+			protocolparser.OpFieldIndexRatio: "0.15000000",
 		},
 	}
 	if flags := m.resolveBusinessInvalidFlagsWithRegisterAllowlist(100, &protocolparser.TxSnapshot{TxID: "tx-1", TxIdx: 1}, allowedPayload); flags != BizInvalidNone {
@@ -103,7 +121,7 @@ func TestResolveBusinessInvalidFlags_RegisterAllowlistWindow(t *testing.T) {
 		Fields: map[string]string{
 			protocolparser.OpFieldActorAddr:  "owner-blocked",
 			protocolparser.OpFieldRewardAddr: "bc1qrewardaddr6666666666666666666666666666666666",
-			protocolparser.OpFieldIndexRatio: "0.60000000",
+			protocolparser.OpFieldIndexRatio: "0.11000000",
 		},
 	}
 	if flags := m.resolveBusinessInvalidFlagsWithRegisterAllowlist(100, &protocolparser.TxSnapshot{TxID: "tx-2", TxIdx: 2}, blockedPayload); flags != BizInvalidRegisterRule {
@@ -131,7 +149,7 @@ func TestResolveBusinessInvalidFlags_RegisterAllowlistIgnoredWhenNotEnforced(t *
 		Fields: map[string]string{
 			protocolparser.OpFieldActorAddr:  "owner-mempool-like",
 			protocolparser.OpFieldRewardAddr: "bc1qrewardaddr7777777777777777777777777777777777",
-			protocolparser.OpFieldIndexRatio: "0.70000000",
+			protocolparser.OpFieldIndexRatio: "0.12000000",
 		},
 	}
 	if flags := m.resolveBusinessInvalidFlags(100, &protocolparser.TxSnapshot{TxID: "tx-3", TxIdx: 2}, payload); flags != BizInvalidNone {

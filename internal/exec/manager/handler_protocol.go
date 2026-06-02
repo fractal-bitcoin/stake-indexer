@@ -2,13 +2,27 @@ package indexer
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"stake_indexer/conf"
 	"stake_indexer/constant"
 	pgdb "stake_indexer/internal/component/pg"
+	rdb "stake_indexer/internal/component/redis"
 	protocolparser "stake_indexer/internal/parser/protocol"
+
+	redis "github.com/go-redis/redis/v8"
 )
+
+const (
+	maxCommissionRatio = 0.15
+)
+
+type delayedCommissionRatio struct {
+	Ratio           float64
+	EventHeight     uint32
+	EffectiveHeight uint32
+}
 
 func (m *Manager) handleRegisterTx(height uint32, tx *protocolparser.TxSnapshot, payload *protocolparser.OpReturnPayload) error {
 	indexRatio, ok := protocolparser.ParseRatio(payload.Get(protocolparser.OpFieldIndexRatio))
@@ -169,7 +183,7 @@ func (m *Manager) validateUpdateRatioTx(height uint32, tx *protocolparser.TxSnap
 	}
 
 	ratio, ok := protocolparser.ParseRatio(payload.Get(protocolparser.OpFieldIndexRatio))
-	if !ok {
+	if !ok || !isValidCommissionRatio(ratio) {
 		return "", 0, false, nil
 	}
 	userAddress, err := m.getIndexerUserAddressForAuth(indexerID)
@@ -189,23 +203,134 @@ func (m *Manager) handleUpdateRatioTx(height uint32, tx *protocolparser.TxSnapsh
 	if err != nil || !ok {
 		return err
 	}
+	delayed := delayedCommissionRatio{
+		Ratio:           ratio,
+		EventHeight:     height,
+		EffectiveHeight: height + conf.StakeRewardCfg.CommissionActivationBlocks,
+	}
 
 	if updateLatest {
-		m.stageHSet(m.getIndexerInfoKey(indexerID), map[string]interface{}{
-			"index_ratio":        protocolparser.FormatRatio(ratio),
-			"last_update_height": height,
-		})
+		delayedKey := m.getIndexerInfoDelayedCommissionKey()
+		infoKey := m.getIndexerInfoKey(indexerID)
+		if err := m.stageCommissionRatioForHeight(
+			height,
+			indexerID,
+			delayedKey,
+			infoKey,
+			"index_ratio",
+		); err != nil {
+			return err
+		}
+		m.stageDelayedCommissionRatio(delayedKey, indexerID, delayed)
+		m.stageHSet(infoKey, map[string]interface{}{"last_update_height": height})
 	}
 	if updateSnapshot {
+		delayedKey := constant.REDIS_STAKE_INDEXER_RATIO_SNAPSHOT_DELAYED_COMMISSION_KEY
 		snapshotKey := constant.REDIS_STAKE_INDEXER_RATIO_SNAPSHOT_KEY
 		if m != nil && m.pendingRewardMode {
+			delayedKey = constant.REDIS_STAKE_PENDING_INDEXER_RATIO_SNAPSHOT_DELAYED_COMMISSION_KEY
 			snapshotKey = constant.REDIS_STAKE_PENDING_INDEXER_RATIO_SNAPSHOT_KEY
 		}
-		m.stageHSet(snapshotKey, map[string]interface{}{
-			indexerID: protocolparser.FormatRatio(ratio),
-		})
+		if err := m.stageCommissionRatioForHeight(height, indexerID, delayedKey, snapshotKey, indexerID); err != nil {
+			return err
+		}
+		m.stageDelayedCommissionRatio(delayedKey, indexerID, delayed)
 	}
 
+	return nil
+}
+
+func isValidCommissionRatio(ratio float64) bool {
+	return ratio >= 0 && ratio <= maxCommissionRatio
+}
+
+func formatDelayedCommissionRatio(item delayedCommissionRatio) string {
+	return strings.Join([]string{
+		protocolparser.FormatRatio(item.Ratio),
+		strconv.FormatUint(uint64(item.EventHeight), 10),
+		strconv.FormatUint(uint64(item.EffectiveHeight), 10),
+	}, "|")
+}
+
+func parseDelayedCommissionRatio(raw string) (delayedCommissionRatio, bool) {
+	parts := strings.Split(strings.TrimSpace(raw), "|")
+	if len(parts) != 3 {
+		return delayedCommissionRatio{}, false
+	}
+	ratio, ok := protocolparser.ParseRatio(parts[0])
+	if !ok {
+		return delayedCommissionRatio{}, false
+	}
+	eventHeight, err := strconv.ParseUint(strings.TrimSpace(parts[1]), 10, 32)
+	if err != nil {
+		return delayedCommissionRatio{}, false
+	}
+	effectiveHeight, err := strconv.ParseUint(strings.TrimSpace(parts[2]), 10, 32)
+	if err != nil {
+		return delayedCommissionRatio{}, false
+	}
+	return delayedCommissionRatio{
+		Ratio:           ratio,
+		EventHeight:     uint32(eventHeight),
+		EffectiveHeight: uint32(effectiveHeight),
+	}, true
+}
+
+func (m *Manager) getStagedDelayedCommissionRatio(key, indexerID string) (delayedCommissionRatio, bool) {
+	if m == nil || m.slowState == nil || key == "" || indexerID == "" {
+		return delayedCommissionRatio{}, false
+	}
+	values := m.slowState.hset[key]
+	if len(values) == 0 {
+		return delayedCommissionRatio{}, false
+	}
+	raw, ok := values[indexerID]
+	if !ok {
+		return delayedCommissionRatio{}, false
+	}
+	return parseDelayedCommissionRatio(fmt.Sprint(raw))
+}
+
+func (m *Manager) loadDelayedCommissionRatio(key, indexerID string) (delayedCommissionRatio, bool, error) {
+	if item, ok := m.getStagedDelayedCommissionRatio(key, indexerID); ok {
+		return item, true, nil
+	}
+	raw, err := rdb.RdbBalanceClient.HGet(m.ctx, key, indexerID).Result()
+	if err == redis.Nil {
+		return delayedCommissionRatio{}, false, nil
+	}
+	if err != nil {
+		return delayedCommissionRatio{}, false, fmt.Errorf("load delayed commission ratio failed: %w", err)
+	}
+	item, ok := parseDelayedCommissionRatio(raw)
+	return item, ok, nil
+}
+
+func (m *Manager) stageDelayedCommissionRatio(key, indexerID string, item delayedCommissionRatio) {
+	m.stageHSet(key, map[string]interface{}{
+		indexerID: formatDelayedCommissionRatio(item),
+	})
+}
+
+func (m *Manager) hasUneffectiveDelayedCommissionRatio(indexerID string, height uint32) (bool, error) {
+	item, ok, err := m.loadDelayedCommissionRatio(constant.REDIS_STAKE_INDEXER_DELAYED_COMMISSION_KEY, indexerID)
+	if err != nil || !ok {
+		return false, err
+	}
+	return item.EffectiveHeight > height, nil
+}
+
+func (m *Manager) stageCommissionRatioForHeight(height uint32, indexerID, delayedKey, targetKey, targetField string) error {
+	item, ok, err := m.loadDelayedCommissionRatio(delayedKey, indexerID)
+	if err != nil || !ok {
+		return err
+	}
+	if item.EffectiveHeight > height {
+		return nil
+	}
+	m.stageHSet(targetKey, map[string]interface{}{
+		targetField: protocolparser.FormatRatio(item.Ratio),
+	})
 	return nil
 }
 func (m *Manager) isIndexerRegistered(indexerID string) (bool, error) {

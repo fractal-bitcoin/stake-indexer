@@ -14,12 +14,13 @@ const (
 	BizInvalidProofRule       uint64 = 1 << 3
 	BizInvalidStakeRule       uint64 = 1 << 4
 	BizInvalidClaimRule       uint64 = 1 << 5
+	BizInvalidCommissionRule  uint64 = 1 << 6
 	BizInvalidUnknown         uint64 = 1 << 31
 )
 
 type BusinessInvalidDeps interface {
 	ResolveRegisterInvalidFlags(currentHeight uint32, tx *protocolparser.TxSnapshot, payload *protocolparser.OpReturnPayload) uint64
-	ResolveOwnerAuthInvalidFlags(currentHeight uint32, payload *protocolparser.OpReturnPayload) uint64
+	ResolveUpdateRatioInvalidFlags(currentHeight uint32, payload *protocolparser.OpReturnPayload) uint64
 	BuildStakeProof(currentHeight uint32, tx *protocolparser.TxSnapshot, payload *protocolparser.OpReturnPayload) (bool, error)
 	ValidateStakeTx(currentHeight uint32, tx *protocolparser.TxSnapshot, payload *protocolparser.OpReturnPayload) (bool, error)
 	BuildStakeClaimedReward(currentHeight uint32, tx *protocolparser.TxSnapshot, payload *protocolparser.OpReturnPayload) (bool, error)
@@ -40,7 +41,7 @@ func ResolveBusinessInvalidFlags(deps BusinessInvalidDeps, currentHeight uint32,
 		}
 		return deps.ResolveRegisterInvalidFlags(currentHeight, tx, payload)
 	case protocolparser.TagAllocatRatio:
-		return deps.ResolveOwnerAuthInvalidFlags(currentHeight, payload)
+		return deps.ResolveUpdateRatioInvalidFlags(currentHeight, payload)
 	case protocolparser.TagProveStake:
 		ok, err := deps.BuildStakeProof(currentHeight, tx, payload)
 		if err != nil || !ok {

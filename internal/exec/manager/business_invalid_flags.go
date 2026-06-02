@@ -20,6 +20,7 @@ const (
 	BizInvalidProofRule       uint64 = entryfast.BizInvalidProofRule
 	BizInvalidStakeRule       uint64 = entryfast.BizInvalidStakeRule
 	BizInvalidClaimRule       uint64 = entryfast.BizInvalidClaimRule
+	BizInvalidCommissionRule  uint64 = entryfast.BizInvalidCommissionRule
 	BizInvalidUnknown         uint64 = entryfast.BizInvalidUnknown
 )
 
@@ -35,7 +36,7 @@ func (d managerBusinessInvalidDeps) ResolveRegisterInvalidFlags(currentHeight ui
 	return d.m.resolveRegisterInvalidFlags(currentHeight, tx, payload, d.enforceRegisterIndexerAllow)
 }
 
-func (d managerBusinessInvalidDeps) ResolveOwnerAuthInvalidFlags(currentHeight uint32, payload *protocolparser.OpReturnPayload) uint64 {
+func (d managerBusinessInvalidDeps) ResolveUpdateRatioInvalidFlags(currentHeight uint32, payload *protocolparser.OpReturnPayload) uint64 {
 	if d.m == nil || payload == nil {
 		return BizInvalidUnknown
 	}
@@ -50,6 +51,15 @@ func (d managerBusinessInvalidDeps) ResolveOwnerAuthInvalidFlags(currentHeight u
 	actorAddress := strings.TrimSpace(payload.Get(protocolparser.OpFieldActorAddr))
 	if actorAddress == "" || actorAddress != userAddress {
 		return BizInvalidActorNotOwner
+	}
+	ratio, ok := protocolparser.ParseRatio(payload.Get(protocolparser.OpFieldIndexRatio))
+	if !ok || !isValidCommissionRatio(ratio) {
+		return BizInvalidCommissionRule
+	}
+	if hasDelayed, err := d.m.hasUneffectiveDelayedCommissionRatio(indexerID, currentHeight); err != nil {
+		return BizInvalidUnknown
+	} else if hasDelayed {
+		return BizInvalidCommissionRule
 	}
 	return BizInvalidNone
 }
@@ -147,6 +157,9 @@ func bizInvalidReasonNames(flags uint64) []string {
 	if flags&BizInvalidClaimRule != 0 {
 		reasons = append(reasons, "claim_rule")
 	}
+	if flags&BizInvalidCommissionRule != 0 {
+		reasons = append(reasons, "commission_rule")
+	}
 	if flags&BizInvalidUnknown != 0 {
 		reasons = append(reasons, "unknown")
 	}
@@ -173,6 +186,10 @@ func (m *Manager) resolveRegisterInvalidFlags(currentHeight uint32, tx *protocol
 
 	userAddress := normalizeUserAddress(payload.Get(protocolparser.OpFieldActorAddr))
 	if userAddress == "" {
+		return BizInvalidRegisterRule
+	}
+	ratio, ok := protocolparser.ParseRatio(payload.Get(protocolparser.OpFieldIndexRatio))
+	if !ok || !isValidCommissionRatio(ratio) {
 		return BizInvalidRegisterRule
 	}
 	if m.registerOwnerSeen == nil {
