@@ -49,6 +49,12 @@ func (m *Manager) LoadStakeBindingsToHeight(height uint32, withBalance bool) err
 		defer pipe.Close()
 		balanceCmds := make(map[string]*redis.StringCmd, len(items))
 		for _, item := range items {
+			if m.pendingRewardMode {
+				// Pending reward flow must not bootstrap from shared snapshot balances.
+				// It should rebuild its own pending snapshot balances from configured start height.
+				balanceCmds[item.StakeAddress] = pipe.Get(m.ctx, constant.GetPendingSnapshotBalanceKey(item.StakeAddress))
+				continue
+			}
 			balanceCmds[item.StakeAddress] = pipe.Get(m.ctx, constant.GetSnapshotBalanceKey(item.StakeAddress))
 		}
 		if _, err := pipe.Exec(m.ctx); err != nil && err != redis.Nil {

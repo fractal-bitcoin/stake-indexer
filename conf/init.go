@@ -29,8 +29,12 @@ type StakeRewardConfigInfo struct {
 	LoopInterval                 uint32
 	BatchBlockCount              uint32
 	SlowLagBlocks                uint32
+	PendingRewardLagBlocks       uint32
 	ProofWindow                  uint32
 	DelaySubmitTriggerBlocks     uint32
+	DelaySubmitStage2StepBlocks  uint32
+	DelaySubmitStage2StepPercent uint64
+	Stage2StartHeight            uint32
 	EnableMempoolIndexing        bool
 	IndexStartHeight             uint32
 	StartRewardHeight            uint32
@@ -64,8 +68,12 @@ func DefaultConfig() StakeRewardConfigInfo {
 	return StakeRewardConfigInfo{
 		BatchBlockCount:              500,
 		SlowLagBlocks:                20160,
+		PendingRewardLagBlocks:       1000,
 		ProofWindow:                  20160,
 		DelaySubmitTriggerBlocks:     120,
+		DelaySubmitStage2StepBlocks:  100,
+		DelaySubmitStage2StepPercent: 10,
+		Stage2StartHeight:            1784160,
 		IndexStartHeight:             1760000,
 		StartRewardHeight:            1764000,
 		StateAPITimeout:              5 * time.Second,
@@ -105,11 +113,23 @@ func Load(configFile string) (StakeRewardConfigInfo, error) {
 	if lag := vp.GetUint32("slow_lag_blocks"); lag > 0 {
 		cfg.SlowLagBlocks = lag
 	}
+	if lag := vp.GetUint32("pending_reward_lag_blocks"); lag > 0 {
+		cfg.PendingRewardLagBlocks = lag
+	}
 	if proofWindow := vp.GetUint32("proof_window"); proofWindow > 0 {
 		cfg.ProofWindow = proofWindow
 	}
 	if delayBlocks := vp.GetUint32("delay_submit_trigger_blocks"); delayBlocks > 0 {
 		cfg.DelaySubmitTriggerBlocks = delayBlocks
+	}
+	if stepBlocks := vp.GetUint32("delay_submit_stage2_step_blocks"); stepBlocks > 0 {
+		cfg.DelaySubmitStage2StepBlocks = stepBlocks
+	}
+	if stepPercent := vp.GetUint64("delay_submit_stage2_step_percent"); stepPercent > 0 {
+		cfg.DelaySubmitStage2StepPercent = stepPercent
+	}
+	if stage2StartHeight := vp.GetUint32("stage2_start_height"); stage2StartHeight > 0 {
+		cfg.Stage2StartHeight = stage2StartHeight
 	}
 	cfg.EnableMempoolIndexing = vp.GetBool("enable_mempool_indexing")
 	if vp.IsSet("index_start_height") {

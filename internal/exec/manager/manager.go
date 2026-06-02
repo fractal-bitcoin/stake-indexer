@@ -33,6 +33,8 @@ type Manager struct {
 
 	slowState *slowWriteState
 
+	pendingRewardMode bool
+
 	stakeAddrToIndexer        map[string]StakeAddressInfo
 	indexerToAddrStakeAmount  map[string]map[string]uint64
 	indexerToUserStakeAddress map[string]map[string]string
@@ -51,9 +53,18 @@ func NewManager(cfg conf.StakeRewardConfigInfo) *Manager {
 		cfg.ProofWindow = 144
 	}
 
+	return newManagerWithMode(cfg, false)
+}
+
+func NewPendingManager(cfg conf.StakeRewardConfigInfo) *Manager {
+	return newManagerWithMode(cfg, true)
+}
+
+func newManagerWithMode(cfg conf.StakeRewardConfigInfo, pendingMode bool) *Manager {
 	return &Manager{
 		ctx:                       context.Background(),
 		slowState:                 newSlowWriteState(),
+		pendingRewardMode:         pendingMode,
 		stakeBindingsLoadedHeight: 0,
 		stakeAddrToIndexer:        make(map[string]StakeAddressInfo),
 		indexerToAddrStakeAmount:  make(map[string]map[string]uint64),

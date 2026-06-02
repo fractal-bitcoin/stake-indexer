@@ -191,13 +191,17 @@ func (m *Manager) handleUpdateRatioTx(height uint32, tx *protocolparser.TxSnapsh
 	}
 
 	if updateLatest {
-		m.stageHSet(constant.GetIndexerInfoKey(indexerID), map[string]interface{}{
+		m.stageHSet(m.getIndexerInfoKey(indexerID), map[string]interface{}{
 			"index_ratio":        protocolparser.FormatRatio(ratio),
 			"last_update_height": height,
 		})
 	}
 	if updateSnapshot {
-		m.stageHSet(constant.REDIS_STAKE_INDEXER_RATIO_SNAPSHOT_KEY, map[string]interface{}{
+		snapshotKey := constant.REDIS_STAKE_INDEXER_RATIO_SNAPSHOT_KEY
+		if m != nil && m.pendingRewardMode {
+			snapshotKey = constant.REDIS_STAKE_PENDING_INDEXER_RATIO_SNAPSHOT_KEY
+		}
+		m.stageHSet(snapshotKey, map[string]interface{}{
 			indexerID: protocolparser.FormatRatio(ratio),
 		})
 	}

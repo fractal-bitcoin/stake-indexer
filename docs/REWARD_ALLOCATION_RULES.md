@@ -125,7 +125,8 @@ For each eligible indexer:
 
 Penalty rule:
 
-- when the indexer penalty flag is `true`, `effective_stake = raw_stake * 95 / 100`
+- in phase 1, when the indexer penalty flag is `true`, `effective_stake = raw_stake * 95 / 100`
+- in phase 2, when the indexer penalty flag is `true`, `effective_stake` decreases by `delay_submit_stage2_step_percent` percent of `raw_stake` for every full `delay_submit_stage2_step_blocks` delayed blocks, down to 0%
 - otherwise, `effective_stake = raw_stake`
 
 Indexers with `effective_stake = 0` do not participate in allocation.
@@ -150,12 +151,23 @@ When `unlocked_reward = 0`, no reward records are written for the block.
 
 ## Allocation Formula
 
+### Phase Switch
+
+Reward allocation has two phases separated by
+`stage2_start_height` in `conf/config.yaml`.
+
+- phase 1 (`height < stage2_start_height`): uses `round(...)`
+- phase 2 (`height >= stage2_start_height`): uses decimal truncation (floor) to avoid over-allocation
+- proof settlement window switches at the same checkpoint:
+  - phase 1: use configured `proof_window`
+  - phase 2: use configured `delay_submit_stage2_step_blocks` and `delay_submit_stage2_step_percent` for delayed penalty, while proof window stays at `1000`
+
 ### First-Layer Allocation
 
 For each eligible indexer:
 
 ```text
-first_layer_reward_i = round(unlocked_reward * effective_stake_i / total_effective_stake)
+first_layer_reward_i = quantize(unlocked_reward * effective_stake_i / total_effective_stake)
 ```
 
 ### Indexer Share
@@ -165,7 +177,7 @@ The indexer commission ratio is read from the snapshot view for the processing h
 For each eligible indexer:
 
 ```text
-indexer_reward = round(first_layer_reward_i * index_ratio_snapshot)
+indexer_reward = quantize(first_layer_reward_i * index_ratio_snapshot)
 user_reward_pool = first_layer_reward_i - indexer_reward
 ```
 
@@ -176,7 +188,7 @@ If rounding produces `indexer_reward > first_layer_reward_i`, the value is cappe
 Staker rewards are distributed by raw stake share within the indexer:
 
 ```text
-user_reward_u = round(user_reward_pool * stake_u / raw_stake_i)
+user_reward_u = quantize(user_reward_pool * stake_u / raw_stake_i)
 ```
 
 ## Ratio Snapshot Timing

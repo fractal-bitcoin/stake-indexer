@@ -40,6 +40,60 @@ func TestLoad_EnableMempoolIndexing_True(t *testing.T) {
 	}
 }
 
+func TestLoad_DelaySubmitStage2Config(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.yaml")
+	content := "delay_submit_stage2_step_blocks: 50\ndelay_submit_stage2_step_percent: 20\n"
+	if err := os.WriteFile(configPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("write config failed: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	if cfg.DelaySubmitStage2StepBlocks != 50 {
+		t.Fatalf("expected delay_submit_stage2_step_blocks 50, got %d", cfg.DelaySubmitStage2StepBlocks)
+	}
+	if cfg.DelaySubmitStage2StepPercent != 20 {
+		t.Fatalf("expected delay_submit_stage2_step_percent 20, got %d", cfg.DelaySubmitStage2StepPercent)
+	}
+}
+
+func TestLoad_PendingRewardLagBlocks(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.yaml")
+	content := "pending_reward_lag_blocks: 1200\n"
+	if err := os.WriteFile(configPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("write config failed: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	if cfg.PendingRewardLagBlocks != 1200 {
+		t.Fatalf("expected pending_reward_lag_blocks 1200, got %d", cfg.PendingRewardLagBlocks)
+	}
+}
+
+func TestLoad_Stage2StartHeight(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.yaml")
+	content := "stage2_start_height: 1800000\n"
+	if err := os.WriteFile(configPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("write config failed: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	if cfg.Stage2StartHeight != 1800000 {
+		t.Fatalf("expected stage2_start_height 1800000, got %d", cfg.Stage2StartHeight)
+	}
+}
+
 func TestIsIndexerAllowedAtHeight_AllowlistWindow(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.IndexerAllowlistWindows = []IndexerAllowlistWindow{

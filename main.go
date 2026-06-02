@@ -85,6 +85,7 @@ func startStakeRewardSyncAfterCommitted(committedHeight uint32) {
 	stakeRewardSyncOnce.Do(func() {
 		logger.Log.Info("starting stake reward sync", zap.Uint32("committed_height", committedHeight))
 		go entryslow.SyncStakeRewardIndexer()
+		go entryslow.SyncPendingRewardIndexer()
 	})
 }
 
@@ -234,6 +235,9 @@ func main() {
 	}
 	entryslow.SetManagerFactory(func(cfg conf.StakeRewardConfigInfo) entryslow.RewardSyncManager {
 		return indexer.NewManager(cfg)
+	})
+	entryslow.SetPendingManagerFactory(func(cfg conf.StakeRewardConfigInfo) entryslow.RewardSyncManager {
+		return indexer.NewPendingManager(cfg)
 	})
 	if err := entryslow.EnsureManagerFactoryConfigured(); err != nil {
 		panic(err)

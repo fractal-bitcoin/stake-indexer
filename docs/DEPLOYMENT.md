@@ -66,8 +66,12 @@ Primary runtime settings include:
 - `index_start_height`
 - `batch_block_count`
 - `slow_lag_blocks`
+- `pending_reward_lag_blocks`
 - `proof_window`
 - `delay_submit_trigger_blocks`
+- `delay_submit_stage2_step_blocks`
+- `delay_submit_stage2_step_percent`
+- `stage2_start_height`
 - `start_reward_height`
 - `state_api_base_url`
 - `state_api_auth`
@@ -90,13 +94,17 @@ The values below describe runtime behavior. Example values in this section use `
   The number of committed main-indexer blocks that the reward snapshot consumer intentionally stays behind. The reward sync loop only consumes heights up to `latest_committed_sync_block_height - slow_lag_blocks`, so it never follows the main indexer all the way to the current committed tip.
   Example with default `20160`: if the latest committed block in `sync_blocks` is `1525000`, the reward snapshot loop will only advance up to height `1504840`. Heights above `1504840` are deferred until the main indexer has moved further ahead.
 
+- `pending_reward_lag_blocks`
+  The number of committed main-indexer blocks that the pending reward snapshot consumer intentionally stays behind. The pending reward sync loop only consumes heights up to `latest_committed_sync_block_height - pending_reward_lag_blocks`.
+  Example with default `1000`: if the latest committed block in `sync_blocks` is `1525000`, the pending reward snapshot loop will only advance up to height `1524000`.
+
 - `proof_window`
   The maximum block-distance after `prove_block_height` within which a proof transaction is still considered for that reward height. When rewards are computed for height `H`, the service loads proofs with `prove_block_height = H` and `proof_tx_height > H` and `proof_tx_height <= H + proof_window`.
   Example with default `20160`: for reward height `1500000`, the service only checks proofs submitted in blocks `1500001` through `1520160`. A proof for `prove_block_height = 1500000` first appearing at height `1520161` is ignored for that reward round.
 
 - `delay_submit_trigger_blocks`
-  The threshold used to mark an otherwise valid proof as delayed. If a proof's submission height is more than `delay_submit_trigger_blocks` blocks after its `prove_block_height`, it is marked `valid_delayed`, and the corresponding indexer receives a 5% effective-stake penalty during reward allocation.
-  Example with default `120`: if a proof declares `prove_block_height = 1500000` and the proof transaction lands at height `1500100`, it is still treated as normal valid proof. If it lands at height `1500121`, it is marked delayed-valid and that indexer's effective stake is reduced to `95%` of raw stake for that reward calculation.
+  The threshold used to mark an otherwise valid proof as delayed. If a proof's submission height is more than `delay_submit_trigger_blocks` blocks after its `prove_block_height`, it is marked `valid_delayed`. In phase 1, the corresponding indexer receives a 5% effective-stake penalty during reward allocation. In phase 2, the step size and penalty percent are controlled by `delay_submit_stage2_step_blocks` and `delay_submit_stage2_step_percent`; default values are `100` and `10`.
+  Example with default `120`: if a proof declares `prove_block_height = 1500000` and the proof transaction lands at height `1500100`, it is still treated as normal valid proof. If it lands at height `1500121`, it is marked delayed-valid; phase 1 reduces effective stake to `95%`, while phase 2 applies the configured step rule.
 
 - `start_reward_height`
   The first block height from which reward allocation logic is allowed to produce reward records.
