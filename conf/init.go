@@ -34,6 +34,7 @@ type StakeRewardConfigInfo struct {
 	DelaySubmitTriggerBlocks     uint32
 	DelaySubmitStage2StepBlocks  uint32
 	DelaySubmitStage2StepPercent uint64
+	CommissionActivationBlocks   uint32
 	Stage2StartHeight            uint32
 	EnableMempoolIndexing        bool
 	IndexStartHeight             uint32
@@ -73,6 +74,7 @@ func DefaultConfig() StakeRewardConfigInfo {
 		DelaySubmitTriggerBlocks:     120,
 		DelaySubmitStage2StepBlocks:  100,
 		DelaySubmitStage2StepPercent: 10,
+		CommissionActivationBlocks:   20160,
 		Stage2StartHeight:            1784160,
 		IndexStartHeight:             1760000,
 		StartRewardHeight:            1764000,
@@ -127,6 +129,9 @@ func Load(configFile string) (StakeRewardConfigInfo, error) {
 	}
 	if stepPercent := vp.GetUint64("delay_submit_stage2_step_percent"); stepPercent > 0 {
 		cfg.DelaySubmitStage2StepPercent = stepPercent
+	}
+	if activationBlocks := vp.GetUint32("commission_activation_blocks"); activationBlocks > 0 {
+		cfg.CommissionActivationBlocks = activationBlocks
 	}
 	if stage2StartHeight := vp.GetUint32("stage2_start_height"); stage2StartHeight > 0 {
 		cfg.Stage2StartHeight = stage2StartHeight

@@ -192,7 +192,7 @@ func (m *Manager) handleBlockReward(block *protocolparser.BlockSnapshot) error {
 		firstLayerRewardPercent := float64(weights.effective) / float64(totalEffectiveStake)
 		firstLayerReward := quantizeReward(float64(unlockedRewardAmount)*firstLayerRewardPercent, useTruncation)
 
-		indexerRatio, err := m.getIndexerSnapshotRatio(indexerID)
+		indexerRatio, err := m.getIndexerSnapshotRatio(block.Height, indexerID)
 		if err != nil {
 			return err
 		}
@@ -364,6 +364,13 @@ func (m *Manager) getIndexerInfoKey(indexerID string) string {
 	return constant.GetIndexerInfoKey(indexerID)
 }
 
+func (m *Manager) getIndexerInfoDelayedCommissionKey() string {
+	if m != nil && m.pendingRewardMode {
+		return constant.REDIS_STAKE_PENDING_INDEXER_DELAYED_COMMISSION_KEY
+	}
+	return constant.REDIS_STAKE_INDEXER_DELAYED_COMMISSION_KEY
+}
+
 func (m *Manager) getStakeRewardsKey(address string) string {
 	if m != nil && m.pendingRewardMode {
 		return constant.GetPendingStakeRewardsKey(address)
@@ -490,12 +497,25 @@ func (m *Manager) getStakeAddressByIndexerAndUser(indexerID, userAddress string)
 	return ""
 }
 
-func (m *Manager) getIndexerLatestRatio(indexerID string) (float64, error) {
+func (m *Manager) getIndexerLatestRatio(height uint32, indexerID string) (float64, error) {
+	infoKey := m.getIndexerInfoKey(indexerID)
+	delayedKey := m.getIndexerInfoDelayedCommissionKey()
+	if height > 0 {
+		if err := m.stageCommissionRatioForHeight(
+			height,
+			indexerID,
+			delayedKey,
+			infoKey,
+			"index_ratio",
+		); err != nil {
+			return 0, err
+		}
+	}
 	if ratio, ok := m.getCachedIndexerRatio(indexerID); ok {
 		return ratio, nil
 	}
 
-	values, err := rdb.RdbBalanceClient.HMGet(m.ctx, m.getIndexerInfoKey(indexerID), "index_ratio").Result()
+	values, err := rdb.RdbBalanceClient.HMGet(m.ctx, infoKey, "index_ratio").Result()
 	if err != nil {
 		return 0, fmt.Errorf("load indexer ratio failed: %w", err)
 	}
@@ -520,15 +540,21 @@ func (m *Manager) getIndexerLatestRatio(indexerID string) (float64, error) {
 	return 0, nil
 }
 
-func (m *Manager) getIndexerSnapshotRatio(indexerID string) (float64, error) {
+func (m *Manager) getIndexerSnapshotRatio(height uint32, indexerID string) (float64, error) {
+	snapshotKey := constant.REDIS_STAKE_INDEXER_RATIO_SNAPSHOT_KEY
+	delayedKey := constant.REDIS_STAKE_INDEXER_RATIO_SNAPSHOT_DELAYED_COMMISSION_KEY
+	if m != nil && m.pendingRewardMode {
+		snapshotKey = constant.REDIS_STAKE_PENDING_INDEXER_RATIO_SNAPSHOT_KEY
+		delayedKey = constant.REDIS_STAKE_PENDING_INDEXER_RATIO_SNAPSHOT_DELAYED_COMMISSION_KEY
+	}
+	if err := m.stageCommissionRatioForHeight(height, indexerID, delayedKey, snapshotKey, indexerID); err != nil {
+		return 0, err
+	}
+
 	if ratio, ok := m.getCachedIndexerSnapshotRatio(indexerID); ok {
 		return ratio, nil
 	}
 
-	snapshotKey := constant.REDIS_STAKE_INDEXER_RATIO_SNAPSHOT_KEY
-	if m != nil && m.pendingRewardMode {
-		snapshotKey = constant.REDIS_STAKE_PENDING_INDEXER_RATIO_SNAPSHOT_KEY
-	}
 	raw, err := rdb.RdbBalanceClient.HGet(m.ctx, snapshotKey, indexerID).Result()
 	if err != nil && err != redis.Nil {
 		return 0, fmt.Errorf("load indexer snapshot ratio failed: %w", err)
@@ -537,7 +563,7 @@ func (m *Manager) getIndexerSnapshotRatio(indexerID string) (float64, error) {
 		return ratio, nil
 	}
 
-	return m.getIndexerLatestRatio(indexerID)
+	return m.getIndexerLatestRatio(height, indexerID)
 }
 
 func (m *Manager) getIndexerRewardAddress(indexerID string) (string, error) {

@@ -60,6 +60,40 @@ func TestLoad_DelaySubmitStage2Config(t *testing.T) {
 	}
 }
 
+func TestLoad_CommissionActivationBlocks(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.yaml")
+	content := "commission_activation_blocks: 144\n"
+	if err := os.WriteFile(configPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("write config failed: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	if cfg.CommissionActivationBlocks != 144 {
+		t.Fatalf("expected commission_activation_blocks 144, got %d", cfg.CommissionActivationBlocks)
+	}
+}
+
+func TestLoad_CommissionActivationBlocks_Default(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.yaml")
+	content := "index_start_height: 1760000\n"
+	if err := os.WriteFile(configPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("write config failed: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	if cfg.CommissionActivationBlocks != 20160 {
+		t.Fatalf("expected default commission_activation_blocks 20160, got %d", cfg.CommissionActivationBlocks)
+	}
+}
+
 func TestLoad_PendingRewardLagBlocks(t *testing.T) {
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "config.yaml")

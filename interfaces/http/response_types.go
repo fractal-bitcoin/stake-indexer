@@ -13,15 +13,17 @@ type ListIndexersResp struct {
 }
 
 type IndexerListItem struct {
-	IndexerID       string  `json:"indexer_id"`
-	Name            string  `json:"name"`
-	RewardAddress   string  `json:"reward_address"`
-	UserAddress     string  `json:"user_address"`
-	IndexRatio      float64 `json:"index_ratio"`
-	TotalStaked     uint64  `json:"total_staked"`
-	StakeRatio      float64 `json:"stake_ratio"`
-	AllocatedReward uint64  `json:"allocated_reward"`
-	Pending         bool    `json:"pending,omitempty"`
+	IndexerID                        string   `json:"indexer_id"`
+	Name                             string   `json:"name"`
+	RewardAddress                    string   `json:"reward_address"`
+	UserAddress                      string   `json:"user_address"`
+	IndexRatio                       float64  `json:"index_ratio"`
+	PendingEffectiveIndexRatio       *float64 `json:"pending_effective_index_ratio,omitempty"`
+	PendingEffectiveIndexRatioHeight *uint32  `json:"pending_effective_index_ratio_height,omitempty"`
+	TotalStaked                      uint64   `json:"total_staked"`
+	StakeRatio                       float64  `json:"stake_ratio"`
+	AllocatedReward                  uint64   `json:"allocated_reward"`
+	Pending                          bool     `json:"pending,omitempty"`
 }
 
 type StakerItem struct {
@@ -111,20 +113,22 @@ type IndexerStatusResp struct {
 }
 
 type MempoolProtocolTxItem struct {
-	TxID               string  `json:"txid"`
-	Op                 string  `json:"op"`
-	Height             int64   `json:"height"`
-	InscriptionContent string  `json:"inscription_content"`
-	IndexerID          string  `json:"indexer_id"`
-	UserAddress        string  `json:"user_address"`
-	RewardAddress      string  `json:"reward_address"`
-	StakeAddress       string  `json:"stake_address"`
-	Amount             uint64  `json:"amount"`
-	IndexRatio         float64 `json:"index_ratio"`
-	IndexerName        string  `json:"indexer_name"`
-	ProveBlockHeight   uint32  `json:"prove_block_height"`
-	ProveDataHash      string  `json:"prove_data_hash"`
-	TxIdx              uint32  `json:"tx_idx"`
+	TxID                             string   `json:"txid"`
+	Op                               string   `json:"op"`
+	Height                           int64    `json:"height"`
+	InscriptionContent               string   `json:"inscription_content"`
+	IndexerID                        string   `json:"indexer_id"`
+	UserAddress                      string   `json:"user_address"`
+	RewardAddress                    string   `json:"reward_address"`
+	StakeAddress                     string   `json:"stake_address"`
+	Amount                           uint64   `json:"amount"`
+	IndexRatio                       float64  `json:"index_ratio"`
+	PendingEffectiveIndexRatio       *float64 `json:"pending_effective_index_ratio,omitempty"`
+	PendingEffectiveIndexRatioHeight *uint32  `json:"pending_effective_index_ratio_height,omitempty"`
+	IndexerName                      string   `json:"indexer_name"`
+	ProveBlockHeight                 uint32   `json:"prove_block_height"`
+	ProveDataHash                    string   `json:"prove_data_hash"`
+	TxIdx                            uint32   `json:"tx_idx"`
 }
 
 type ListMempoolProtocolTxsResp struct {

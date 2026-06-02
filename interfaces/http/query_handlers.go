@@ -121,6 +121,93 @@ func loadLatestIndexerRatios(indexerIDs []string) (map[string]float64, error) {
 	return result, nil
 }
 
+type pendingIndexerRatio struct {
+	ratio           float64
+	effectiveHeight uint32
+}
+
+func parsePendingIndexerRatio(raw string) (pendingIndexerRatio, bool) {
+	parts := strings.Split(strings.TrimSpace(raw), "|")
+	if len(parts) != 3 {
+		return pendingIndexerRatio{}, false
+	}
+	ratio, ok := protocolparser.ParseRatio(parts[0])
+	if !ok {
+		return pendingIndexerRatio{}, false
+	}
+	effectiveHeight, err := strconv.ParseUint(strings.TrimSpace(parts[2]), 10, 32)
+	if err != nil || effectiveHeight == 0 {
+		return pendingIndexerRatio{}, false
+	}
+	return pendingIndexerRatio{
+		ratio:           ratio,
+		effectiveHeight: uint32(effectiveHeight),
+	}, true
+}
+
+func loadPendingIndexerRatios(indexerIDs []string) (map[string]pendingIndexerRatio, error) {
+	if len(indexerIDs) == 0 {
+		return map[string]pendingIndexerRatio{}, nil
+	}
+
+	pipe := rdb.RdbBalanceClient.Pipeline()
+	defer pipe.Close()
+
+	cmds := make(map[string]*redis.StringCmd, len(indexerIDs))
+	for _, indexerID := range indexerIDs {
+		indexerID = strings.TrimSpace(indexerID)
+		if indexerID == "" {
+			continue
+		}
+		if _, exists := cmds[indexerID]; exists {
+			continue
+		}
+		cmds[indexerID] = pipe.HGet(ctx, constant.REDIS_STAKE_INDEXER_DELAYED_COMMISSION_KEY, indexerID)
+	}
+	if _, err := pipe.Exec(ctx); err != nil && err != redis.Nil {
+		return nil, err
+	}
+
+	result := make(map[string]pendingIndexerRatio, len(cmds))
+	for indexerID, cmd := range cmds {
+		if cmd == nil {
+			continue
+		}
+		raw, err := cmd.Result()
+		if err != nil || raw == "" {
+			continue
+		}
+		if item, ok := parsePendingIndexerRatio(raw); ok {
+			result[indexerID] = item
+		}
+	}
+	return result, nil
+}
+
+func loadConfirmedBlockHeight() uint32 {
+	raw, err := rdb.RdbBalanceClient.HGet(ctx, constant.TASK_INFO_KEYNAME, constant.TASK_BLOCK_HEIGHT).Result()
+	if err != nil {
+		return 0
+	}
+	height, err := strconv.ParseUint(strings.TrimSpace(raw), 10, 32)
+	if err != nil {
+		return 0
+	}
+	return uint32(height)
+}
+
+func applyPendingIndexerRatio(indexRatio float64, pendingRatio pendingIndexerRatio, confirmedHeight uint32) (float64, *float64, *uint32) {
+	if pendingRatio.effectiveHeight == 0 {
+		return indexRatio, nil, nil
+	}
+	if confirmedHeight >= pendingRatio.effectiveHeight {
+		return pendingRatio.ratio, nil, nil
+	}
+	ratio := pendingRatio.ratio
+	effectiveHeight := pendingRatio.effectiveHeight
+	return indexRatio, &ratio, &effectiveHeight
+}
+
 func applyStakeDelta(base uint64, delta int64) uint64 {
 	if delta == 0 {
 		return base
@@ -251,6 +338,11 @@ func buildConfirmedIndexerItems(registers []pgdb.StakeIndexerRegister, withStake
 	if err != nil {
 		return nil, 0, err
 	}
+	pendingRatios, err := loadPendingIndexerRatios(indexerIDs)
+	if err != nil {
+		return nil, 0, err
+	}
+	confirmedHeight := loadConfirmedBlockHeight()
 	mempoolIndexerDeltas, err := loadMempoolIndexerDeltas(indexerIDs)
 	if err != nil {
 		return nil, 0, err
@@ -308,7 +400,7 @@ func buildConfirmedIndexerItems(registers []pgdb.StakeIndexerRegister, withStake
 			indexRatio = latest
 		}
 
-		result = append(result, IndexerListItem{
+		item := IndexerListItem{
 			IndexerID:       reg.IndexerID,
 			Name:            displayName,
 			RewardAddress:   reg.RewardAddress,
@@ -318,7 +410,15 @@ func buildConfirmedIndexerItems(registers []pgdb.StakeIndexerRegister, withStake
 			StakeRatio:      stakeRatio,
 			AllocatedReward: reward,
 			Pending:         mempoolIndexerDeltas[reg.IndexerID] != 0,
-		})
+		}
+		if pendingRatio, ok := pendingRatios[reg.IndexerID]; ok {
+			item.IndexRatio, item.PendingEffectiveIndexRatio, item.PendingEffectiveIndexRatioHeight = applyPendingIndexerRatio(
+				item.IndexRatio,
+				pendingRatio,
+				confirmedHeight,
+			)
+		}
+		result = append(result, item)
 	}
 
 	return result, globalTotal, nil
@@ -1189,9 +1289,23 @@ func GetMempoolProtocolTxs(c *gin.Context) (rData ResponseData, err error) {
 		return rData, err
 	}
 
+	indexerIDs := make([]string, 0, len(items))
+	for _, item := range items {
+		if strings.TrimSpace(item.IndexerID) != "" {
+			indexerIDs = append(indexerIDs, item.IndexerID)
+		}
+	}
+	pendingRatios, err := loadPendingIndexerRatios(indexerIDs)
+	if err != nil {
+		rData.Code = errorCodeInternal
+		rData.Msg = err.Error()
+		return rData, err
+	}
+	confirmedHeight := loadConfirmedBlockHeight()
+
 	detail := make([]MempoolProtocolTxItem, 0, len(items))
 	for _, item := range items {
-		detail = append(detail, MempoolProtocolTxItem{
+		txItem := MempoolProtocolTxItem{
 			TxID:               item.TxID,
 			Op:                 item.Op,
 			Height:             item.Height,
@@ -1206,7 +1320,15 @@ func GetMempoolProtocolTxs(c *gin.Context) (rData ResponseData, err error) {
 			ProveBlockHeight:   item.ProveBlockHeight,
 			ProveDataHash:      item.ProveDataHash,
 			TxIdx:              item.TxIdx,
-		})
+		}
+		if pendingRatio, ok := pendingRatios[item.IndexerID]; ok {
+			txItem.IndexRatio, txItem.PendingEffectiveIndexRatio, txItem.PendingEffectiveIndexRatioHeight = applyPendingIndexerRatio(
+				txItem.IndexRatio,
+				pendingRatio,
+				confirmedHeight,
+			)
+		}
+		detail = append(detail, txItem)
 	}
 
 	rData.Data = ListMempoolProtocolTxsResp{
