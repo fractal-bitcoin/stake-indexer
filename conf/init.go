@@ -75,7 +75,7 @@ func DefaultConfig() StakeRewardConfigInfo {
 		DelaySubmitStage2StepBlocks:  100,
 		DelaySubmitStage2StepPercent: 10,
 		CommissionActivationBlocks:   20160,
-		Stage2StartHeight:            1784160,
+		Stage2StartHeight:            1824480,
 		IndexStartHeight:             1760000,
 		StartRewardHeight:            1764000,
 		StateAPITimeout:              5 * time.Second,
