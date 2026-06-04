@@ -169,7 +169,7 @@ func Load(configFile string) (StakeRewardConfigInfo, error) {
 	return cfg, nil
 }
 
-func (c StakeRewardConfigInfo) IsIndexerAllowedAtHeight(indexerID string, height uint32) bool {
+func (c StakeRewardConfigInfo) IsIndexerRewardAllowedAtHeight(indexerID string, height uint32) bool {
 	indexerID = strings.TrimSpace(indexerID)
 	if indexerID == "" {
 		return false

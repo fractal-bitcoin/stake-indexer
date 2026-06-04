@@ -124,7 +124,7 @@ The values below describe runtime behavior. Example values in this section use `
   Optional list of reward claim sender address keys. A `claim` inscription is recorded as a claimed reward only when its actor address matches one of these configured sender addresses. Leaving it empty disables claimed-reward recognition and does not affect reward allocation.
 
 - `indexer_allowlist_windows`
-  Optional controlled-launch windows for indexer recognition. Each window has `start_height`, `end_height`, and `indexer_ids`. Windows are half-open: `start_height <= height < end_height`. When the current block height is inside a configured window, only listed indexer IDs are recognized; outside configured windows, all syntactically valid indexer IDs are recognized. This is intended for production launch phases with persisted state, not disposable test mode.
+  Optional controlled-launch windows for reward allocation. Each window has `start_height`, `end_height`, and `indexer_ids`. Windows are half-open: `start_height <= height < end_height`. When a reward height is inside a configured window, only listed indexer IDs participate in reward allocation; outside configured windows, all otherwise eligible indexers can participate. This setting does not restrict indexer registration or protocol `indexer_id` recognition.
 
 - `reward_release_tiers`
   Tiered release percentages keyed by block height. The effective release percent is the highest tier whose `start_height` is less than or equal to the current block height.

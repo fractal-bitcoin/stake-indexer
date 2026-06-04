@@ -16,7 +16,7 @@ type managerFastBlockDeps struct {
 }
 
 func (d managerFastBlockDeps) ResolveBusinessInvalidFlags(currentHeight uint32, tx *stake.TxSnapshot, payload *stake.OpReturnPayload) uint64 {
-	return d.m.resolveBusinessInvalidFlagsWithRegisterAllowlist(currentHeight, tx, payload)
+	return d.m.resolveFastBlockBusinessInvalidFlags(currentHeight, tx, payload)
 }
 
 func (d managerFastBlockDeps) HandleRegisterTx(height uint32, tx *stake.TxSnapshot, payload *stake.OpReturnPayload) error {

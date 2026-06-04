@@ -101,3 +101,30 @@ func TestResolveDelaySubmitStakePercent_Configurable(t *testing.T) {
 		t.Fatalf("expected configurable stage-2 percent 60, got %d", got)
 	}
 }
+
+func TestResolveRewardStakePercentByIndexer_UsesRewardAllowlistWindow(t *testing.T) {
+	origin := conf.StakeRewardCfg
+	cfg := conf.DefaultConfig()
+	cfg.IndexerAllowlistWindows = []conf.IndexerAllowlistWindow{
+		{StartHeight: 100, EndHeight: 200, IndexerIDs: []string{"12:3"}},
+	}
+	conf.StakeRewardCfg = cfg
+	t.Cleanup(func() {
+		conf.StakeRewardCfg = origin
+	})
+
+	proofs := []pgdb.StakeProof{
+		{IndexerID: "12:3", ProveBlockHeight: 100, Height: 100, VerifyStatus: pgdb.StakeProofVerifyValid},
+		{IndexerID: "12:4", ProveBlockHeight: 100, Height: 100, VerifyStatus: pgdb.StakeProofVerifyValid},
+	}
+
+	inside := resolveRewardStakePercentByIndexer(100, proofs)
+	if len(inside) != 1 || inside["12:3"] != 100 {
+		t.Fatalf("inside allowlist window expected only listed indexer, got %#v", inside)
+	}
+
+	outside := resolveRewardStakePercentByIndexer(200, proofs)
+	if len(outside) != 2 || outside["12:3"] != 100 || outside["12:4"] != 100 {
+		t.Fatalf("outside allowlist window expected both indexers, got %#v", outside)
+	}
+}

@@ -128,25 +128,25 @@ func TestLoad_Stage2StartHeight(t *testing.T) {
 	}
 }
 
-func TestIsIndexerAllowedAtHeight_AllowlistWindow(t *testing.T) {
+func TestIsIndexerRewardAllowedAtHeight_AllowlistWindow(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.IndexerAllowlistWindows = []IndexerAllowlistWindow{
 		{StartHeight: 100, EndHeight: 200, IndexerIDs: []string{"12:3"}, indexerSet: stringSet([]string{"12:3"})},
 	}
 
-	if !cfg.IsIndexerAllowedAtHeight("12:4", 99) {
-		t.Fatalf("outside window should allow valid indexer")
+	if !cfg.IsIndexerRewardAllowedAtHeight("12:4", 99) {
+		t.Fatalf("outside window should allow reward allocation")
 	}
-	if !cfg.IsIndexerAllowedAtHeight("12:3", 100) {
-		t.Fatalf("start height should allow listed indexer")
+	if !cfg.IsIndexerRewardAllowedAtHeight("12:3", 100) {
+		t.Fatalf("start height should allow listed indexer reward allocation")
 	}
-	if cfg.IsIndexerAllowedAtHeight("12:4", 100) {
-		t.Fatalf("start height should reject unlisted indexer")
+	if cfg.IsIndexerRewardAllowedAtHeight("12:4", 100) {
+		t.Fatalf("start height should reject unlisted indexer reward allocation")
 	}
-	if cfg.IsIndexerAllowedAtHeight("12:4", 199) {
-		t.Fatalf("height before end should reject unlisted indexer")
+	if cfg.IsIndexerRewardAllowedAtHeight("12:4", 199) {
+		t.Fatalf("height before end should reject unlisted indexer reward allocation")
 	}
-	if !cfg.IsIndexerAllowedAtHeight("12:4", 200) {
+	if !cfg.IsIndexerRewardAllowedAtHeight("12:4", 200) {
 		t.Fatalf("end height should be outside window")
 	}
 }

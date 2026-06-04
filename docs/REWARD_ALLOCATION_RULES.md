@@ -111,6 +111,8 @@ Resolved proof status is stored in `stake_proofs.verify_status`.
 
 An indexer is eligible for reward allocation at a reward height when it has at least one resolved proof with status `Valid` or `ValidDelayed`.
 
+If `indexer_allowlist_windows` contains a window matching the reward height (`start_height <= height < end_height`), only indexer IDs listed in that window participate in reward allocation. Proofs and registrations for other syntactically valid indexer IDs are still recognized, but those indexers are excluded from the allocation weight for that reward height. Outside configured windows, this allowlist does not filter eligible indexers.
+
 For each eligible indexer, the penalty flag is:
 
 - `true` when any valid proof for the indexer is `ValidDelayed`

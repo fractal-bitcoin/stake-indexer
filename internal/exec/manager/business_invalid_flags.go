@@ -25,15 +25,14 @@ const (
 )
 
 type managerBusinessInvalidDeps struct {
-	m                           *Manager
-	enforceRegisterIndexerAllow bool
+	m *Manager
 }
 
 func (d managerBusinessInvalidDeps) ResolveRegisterInvalidFlags(currentHeight uint32, tx *protocolparser.TxSnapshot, payload *protocolparser.OpReturnPayload) uint64 {
 	if d.m == nil || payload == nil {
 		return BizInvalidUnknown
 	}
-	return d.m.resolveRegisterInvalidFlags(currentHeight, tx, payload, d.enforceRegisterIndexerAllow)
+	return d.m.resolveRegisterInvalidFlags(currentHeight, tx, payload)
 }
 
 func (d managerBusinessInvalidDeps) ResolveUpdateRatioInvalidFlags(currentHeight uint32, payload *protocolparser.OpReturnPayload) uint64 {
@@ -86,20 +85,19 @@ func (d managerBusinessInvalidDeps) BuildStakeClaimedReward(currentHeight uint32
 }
 
 func (m *Manager) resolveBusinessInvalidFlags(currentHeight uint32, tx *protocolparser.TxSnapshot, payload *protocolparser.OpReturnPayload) uint64 {
-	return m.resolveBusinessInvalidFlagsWithOptions(currentHeight, tx, payload, false)
+	return m.resolveBusinessInvalidFlagsWithOptions(currentHeight, tx, payload)
 }
 
-func (m *Manager) resolveBusinessInvalidFlagsWithRegisterAllowlist(currentHeight uint32, tx *protocolparser.TxSnapshot, payload *protocolparser.OpReturnPayload) uint64 {
-	return m.resolveBusinessInvalidFlagsWithOptions(currentHeight, tx, payload, true)
+func (m *Manager) resolveFastBlockBusinessInvalidFlags(currentHeight uint32, tx *protocolparser.TxSnapshot, payload *protocolparser.OpReturnPayload) uint64 {
+	return m.resolveBusinessInvalidFlagsWithOptions(currentHeight, tx, payload)
 }
 
-func (m *Manager) resolveBusinessInvalidFlagsWithOptions(currentHeight uint32, tx *protocolparser.TxSnapshot, payload *protocolparser.OpReturnPayload, enforceRegisterIndexerAllow bool) uint64 {
+func (m *Manager) resolveBusinessInvalidFlagsWithOptions(currentHeight uint32, tx *protocolparser.TxSnapshot, payload *protocolparser.OpReturnPayload) uint64 {
 	if m == nil {
 		return BizInvalidUnknown
 	}
 	flags := entryfast.ResolveBusinessInvalidFlags(managerBusinessInvalidDeps{
-		m:                           m,
-		enforceRegisterIndexerAllow: enforceRegisterIndexerAllow,
+		m: m,
 	}, currentHeight, tx, payload)
 	m.logRegisterAnalysisResult(currentHeight, tx, payload, flags)
 	return flags
@@ -124,7 +122,7 @@ func (m *Manager) logRegisterAnalysisResult(currentHeight uint32, tx *protocolpa
 		indexerID := protocolparser.BuildIndexerID(currentHeight, tx.TxIdx)
 		fields = append(fields,
 			zap.String("indexer_id", indexerID),
-			zap.Bool("indexer_allowed", conf.StakeRewardCfg.IsIndexerAllowedAtHeight(indexerID, currentHeight)),
+			zap.Bool("indexer_reward_allowed", conf.StakeRewardCfg.IsIndexerRewardAllowedAtHeight(indexerID, currentHeight)),
 			zap.String("txid", tx.TxID),
 			zap.Uint32("txidx", tx.TxIdx),
 		)
@@ -169,19 +167,9 @@ func bizInvalidReasonNames(flags uint64) []string {
 	return reasons
 }
 
-func (m *Manager) resolveRegisterInvalidFlags(currentHeight uint32, tx *protocolparser.TxSnapshot, payload *protocolparser.OpReturnPayload, enforceIndexerAllow bool) uint64 {
+func (m *Manager) resolveRegisterInvalidFlags(currentHeight uint32, tx *protocolparser.TxSnapshot, payload *protocolparser.OpReturnPayload) uint64 {
 	if m == nil || payload == nil {
 		return BizInvalidUnknown
-	}
-
-	if enforceIndexerAllow {
-		if tx == nil {
-			return BizInvalidRegisterRule
-		}
-		indexerID := protocolparser.BuildIndexerID(currentHeight, tx.TxIdx)
-		if !conf.StakeRewardCfg.IsIndexerAllowedAtHeight(indexerID, currentHeight) {
-			return BizInvalidRegisterRule
-		}
 	}
 
 	userAddress := normalizeUserAddress(payload.Get(protocolparser.OpFieldActorAddr))

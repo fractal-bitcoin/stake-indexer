@@ -89,7 +89,7 @@ func TestResolveBusinessInvalidFlags_RegisterOwnerCaseSensitive(t *testing.T) {
 	}
 }
 
-func TestResolveBusinessInvalidFlags_RegisterAllowlistWindow(t *testing.T) {
+func TestResolveBusinessInvalidFlags_RegisterIgnoresAllowlistWindow(t *testing.T) {
 	m := NewManager(conf.DefaultConfig())
 	m.resetRegisterOwnerSeen()
 
@@ -104,32 +104,20 @@ func TestResolveBusinessInvalidFlags_RegisterAllowlistWindow(t *testing.T) {
 	}
 	conf.StakeRewardCfg = cfg
 
-	allowedPayload := &protocolparser.OpReturnPayload{
+	payload := &protocolparser.OpReturnPayload{
 		Tag: protocolparser.TagRegister,
 		Fields: map[string]string{
-			protocolparser.OpFieldActorAddr:  "owner-allowlisted",
+			protocolparser.OpFieldActorAddr:  "owner-unlisted",
 			protocolparser.OpFieldRewardAddr: "bc1qrewardaddr5555555555555555555555555555555555",
 			protocolparser.OpFieldIndexRatio: "0.15000000",
 		},
 	}
-	if flags := m.resolveBusinessInvalidFlagsWithRegisterAllowlist(100, &protocolparser.TxSnapshot{TxID: "tx-1", TxIdx: 1}, allowedPayload); flags != BizInvalidNone {
-		t.Fatalf("allowlisted register should be valid, got flags=%d", flags)
-	}
-
-	blockedPayload := &protocolparser.OpReturnPayload{
-		Tag: protocolparser.TagRegister,
-		Fields: map[string]string{
-			protocolparser.OpFieldActorAddr:  "owner-blocked",
-			protocolparser.OpFieldRewardAddr: "bc1qrewardaddr6666666666666666666666666666666666",
-			protocolparser.OpFieldIndexRatio: "0.11000000",
-		},
-	}
-	if flags := m.resolveBusinessInvalidFlagsWithRegisterAllowlist(100, &protocolparser.TxSnapshot{TxID: "tx-2", TxIdx: 2}, blockedPayload); flags != BizInvalidRegisterRule {
-		t.Fatalf("non-allowlisted register should be invalid, got flags=%d", flags)
+	if flags := m.resolveFastBlockBusinessInvalidFlags(100, &protocolparser.TxSnapshot{TxID: "tx-2", TxIdx: 2}, payload); flags != BizInvalidNone {
+		t.Fatalf("register should ignore reward allowlist, got flags=%d", flags)
 	}
 }
 
-func TestResolveBusinessInvalidFlags_RegisterAllowlistIgnoredWhenNotEnforced(t *testing.T) {
+func TestResolveBusinessInvalidFlags_RegisterIgnoresRewardAllowlist(t *testing.T) {
 	m := NewManager(conf.DefaultConfig())
 	m.resetRegisterOwnerSeen()
 
