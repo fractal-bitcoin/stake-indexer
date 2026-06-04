@@ -8,15 +8,8 @@ import (
 	protocolparser "stake_indexer/internal/parser/protocol"
 )
 
-func TestBuildStakeClaimedReward_UsesSystemActorAndFirstOutput(t *testing.T) {
-	original := conf.StakeRewardCfg
-	t.Cleanup(func() { conf.StakeRewardCfg = original })
-
-	cfg := conf.DefaultConfig()
-	cfg.RewardClaimSenderAddressKeys = []string{"reward-claim-sender-address"}
-	conf.StakeRewardCfg = cfg
-
-	m := NewManager(cfg)
+func TestBuildStakeClaimedReward_UsesFirstOutput(t *testing.T) {
+	m := NewManager(conf.DefaultConfig())
 	tx := &protocolparser.TxSnapshot{
 		TxID:  "tx-1",
 		TxIdx: 7,
@@ -25,10 +18,8 @@ func TestBuildStakeClaimedReward_UsesSystemActorAndFirstOutput(t *testing.T) {
 		},
 	}
 	payload := &protocolparser.OpReturnPayload{
-		Tag: protocolparser.TagPledgedReward,
-		Fields: map[string]string{
-			protocolparser.OpFieldActorAddr: "reward-claim-sender-address",
-		},
+		Tag:    protocolparser.TagPledgedReward,
+		Fields: map[string]string{},
 	}
 
 	item, err := m.buildStakeClaimedReward(100, tx, payload)
@@ -46,15 +37,8 @@ func TestBuildStakeClaimedReward_UsesSystemActorAndFirstOutput(t *testing.T) {
 	}
 }
 
-func TestBuildStakeClaimedReward_RejectsNonSystemActor(t *testing.T) {
-	original := conf.StakeRewardCfg
-	t.Cleanup(func() { conf.StakeRewardCfg = original })
-
-	cfg := conf.DefaultConfig()
-	cfg.RewardClaimSenderAddressKeys = []string{"reward-claim-sender-address"}
-	conf.StakeRewardCfg = cfg
-
-	m := NewManager(cfg)
+func TestBuildStakeClaimedReward_RejectsNonClaimPayload(t *testing.T) {
+	m := NewManager(conf.DefaultConfig())
 	tx := &protocolparser.TxSnapshot{
 		TxID:  "tx-2",
 		TxIdx: 8,
@@ -63,10 +47,8 @@ func TestBuildStakeClaimedReward_RejectsNonSystemActor(t *testing.T) {
 		},
 	}
 	payload := &protocolparser.OpReturnPayload{
-		Tag: protocolparser.TagPledgedReward,
-		Fields: map[string]string{
-			protocolparser.OpFieldActorAddr: "unknown-wallet-address",
-		},
+		Tag:    protocolparser.TagStake,
+		Fields: map[string]string{},
 	}
 
 	item, err := m.buildStakeClaimedReward(100, tx, payload)
@@ -74,23 +56,14 @@ func TestBuildStakeClaimedReward_RejectsNonSystemActor(t *testing.T) {
 		t.Fatalf("buildStakeClaimedReward returned error: %v", err)
 	}
 	if item != nil {
-		t.Fatalf("expected nil item for non-system actor")
+		t.Fatalf("expected nil item for non-claim payload")
 	}
 }
 
-func TestParseFIP101PayloadFromCSV_ClaimWithoutIndexerID(t *testing.T) {
+func TestParseFIP101PayloadFromCSV_ClaimRejected(t *testing.T) {
 	payload, _, err := protocolparser.ParseFIP101PayloadFromCSV([]byte("fip101,1,claim"), nil, "reward-claim-sender-address", "")
-	if err != nil {
-		t.Fatalf("parseFIP101PayloadFromCSV returned error: %v", err)
-	}
-	if payload == nil {
-		t.Fatalf("parseFIP101PayloadFromCSV returned nil payload")
-	}
-	if payload.Tag != protocolparser.TagPledgedReward {
-		t.Fatalf("unexpected payload tag: %s", payload.Tag)
-	}
-	if got := payload.Get(protocolparser.OpFieldIndexerID); got != "" {
-		t.Fatalf("unexpected indexer id: %s", got)
+	if err == nil {
+		t.Fatalf("expected error for inscription claim, got payload: %#v", payload)
 	}
 }
 

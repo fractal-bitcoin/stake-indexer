@@ -1246,7 +1246,7 @@ type MempoolProtocolQueryParams struct {
 
 func isSupportedProtocolOp(op string) bool {
 	switch op {
-	case "", protocolparser.TagRegister, protocolparser.TagStake, protocolparser.TagProveStake, protocolparser.TagPledgedReward, protocolparser.TagAllocatRatio:
+	case "", protocolparser.TagRegister, protocolparser.TagStake, protocolparser.TagProveStake, protocolparser.TagPledgedReward, protocolparser.TagAllocatRatio, "claim_reward":
 		return true
 	default:
 		return false

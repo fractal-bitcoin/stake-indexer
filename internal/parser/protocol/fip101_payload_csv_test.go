@@ -1,6 +1,10 @@
 package protocolparser
 
-import "testing"
+import (
+	"testing"
+
+	"stake_indexer/model"
+)
 
 func TestParseFIP101PayloadFromCSV_NewProtocolOpNames(t *testing.T) {
 	actorPubKey := make([]byte, 32)
@@ -48,4 +52,57 @@ func TestParseFIP101PayloadFromCSV_NewProtocolOpNames(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestParseProtocolTxFromModelTx_ClaimRewardFromOpReturn(t *testing.T) {
+	tx := &model.Tx{
+		TxIdHex: "tx-claim",
+		TxOuts: []*model.TxOut{
+			{Satoshi: 1000, PkScript: p2wpkhScript(0x01)},
+			{PkScript: opReturnScript("FIP-101:claim_reward")},
+		},
+	}
+
+	parsed, err := ParseProtocolTxFromModelTx(tx, 3, 100)
+	if err != nil {
+		t.Fatalf("parse protocol tx failed: %v", err)
+	}
+	if parsed == nil || parsed.Payload == nil {
+		t.Fatalf("parsed claim payload is nil")
+	}
+	if parsed.Payload.Tag != TagPledgedReward {
+		t.Fatalf("unexpected tag: got=%s want=%s", parsed.Payload.Tag, TagPledgedReward)
+	}
+	if parsed.Event == nil {
+		t.Fatalf("event is nil")
+	}
+	if parsed.Event.Op != "claim_reward" {
+		t.Fatalf("unexpected event op: %s", parsed.Event.Op)
+	}
+	if parsed.Event.UserAddress == "" {
+		t.Fatalf("expected claim receiver address")
+	}
+	if parsed.Event.Amount != 1000 {
+		t.Fatalf("unexpected claim amount: %d", parsed.Event.Amount)
+	}
+}
+
+func TestParseFIP101PayloadFromCSV_ClaimRewardRejected(t *testing.T) {
+	payload, _, err := ParseFIP101PayloadFromCSV([]byte("fip101,1,claim_reward"), nil, "", "")
+	if err == nil {
+		t.Fatalf("expected csv claim_reward to be rejected, got payload: %#v", payload)
+	}
+}
+
+func opReturnScript(text string) []byte {
+	data := []byte(text)
+	return append([]byte{0x6a, byte(len(data))}, data...)
+}
+
+func p2wpkhScript(fill byte) []byte {
+	script := []byte{0x00, 0x14}
+	for i := 0; i < 20; i++ {
+		script = append(script, fill)
+	}
+	return script
 }
