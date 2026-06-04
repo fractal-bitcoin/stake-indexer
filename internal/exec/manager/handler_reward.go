@@ -337,23 +337,29 @@ func (m *Manager) handleBlockReward(block *protocolparser.BlockSnapshot) error {
 }
 
 func (m *Manager) resolveStakeProofValidityForReward(height uint32, blockHash, stateHash string) ([]pgdb.StakeProof, error) {
+	rules := pgdb.StakeProofValidityRules{
+		DelaySubmitTriggerBlocks:     conf.StakeRewardCfg.DelaySubmitTriggerBlocks,
+		DelaySubmitStage2StepBlocks:  conf.StakeRewardCfg.DelaySubmitStage2StepBlocks,
+		DelaySubmitStage2StepPercent: conf.StakeRewardCfg.DelaySubmitStage2StepPercent,
+		Stage2StartHeight:            conf.StakeRewardCfg.Stage2StartHeight,
+	}
 	if m != nil && m.pendingRewardMode {
-		return pgdb.ResolveStakeProofValidityByProveHeightReadOnly(
+		return pgdb.ResolveStakeProofValidityByProveHeightReadOnlyWithRules(
 			m.ctx,
 			height,
 			resolveRewardProofWindow(height),
 			blockHash,
 			stateHash,
-			conf.StakeRewardCfg.DelaySubmitTriggerBlocks,
+			rules,
 		)
 	}
-	return pgdb.ResolveStakeProofValidityByProveHeight(
+	return pgdb.ResolveStakeProofValidityByProveHeightWithRules(
 		m.ctx,
 		height,
 		resolveRewardProofWindow(height),
 		blockHash,
 		stateHash,
-		conf.StakeRewardCfg.DelaySubmitTriggerBlocks,
+		rules,
 	)
 }
 
