@@ -123,9 +123,10 @@ func (m *Manager) handleBlockReward(block *protocolparser.BlockSnapshot) error {
 	}
 
 	type indexerStakeWeight struct {
-		raw       uint64
-		effective uint64
-		penalized bool
+		raw              uint64
+		effective        uint64
+		effectivePercent uint64
+		penalized        bool
 	}
 
 	indexerStakeTotal := make(map[string]indexerStakeWeight, len(stakePercentByIndexer))
@@ -156,7 +157,7 @@ func (m *Manager) handleBlockReward(block *protocolparser.BlockSnapshot) error {
 			continue
 		}
 
-		indexerStakeTotal[indexerID] = indexerStakeWeight{raw: rawStake, effective: effectiveStake, penalized: penalized}
+		indexerStakeTotal[indexerID] = indexerStakeWeight{raw: rawStake, effective: effectiveStake, effectivePercent: stakePercent, penalized: penalized}
 		totalRawStake += rawStake
 		totalEffectiveStake += effectiveStake
 	}
@@ -231,7 +232,10 @@ func (m *Manager) handleBlockReward(block *protocolparser.BlockSnapshot) error {
 					RewardType:           pgdb.StakeRewardTypeIndexer,
 					Height:               block.Height,
 					StakeAmountSnapshot:  weights.raw,
+					IndexerTotalStake:    weights.raw,
+					IndexerEffectivePct:  float64(weights.effectivePercent),
 					StakeAmountEffective: weights.effective,
+					PlatformTotalStake:   totalRawStake,
 					TotalEffectiveStake:  totalEffectiveStake,
 					ReleasePercent:       releasePercent,
 					BlockRewardAmount:    rewardAmount,
@@ -264,7 +268,10 @@ func (m *Manager) handleBlockReward(block *protocolparser.BlockSnapshot) error {
 				RewardType:           pgdb.StakeRewardTypeStake,
 				Height:               block.Height,
 				StakeAmountSnapshot:  stakeAmount,
+				IndexerTotalStake:    weights.raw,
+				IndexerEffectivePct:  float64(weights.effectivePercent),
 				StakeAmountEffective: weights.effective,
+				PlatformTotalStake:   totalRawStake,
 				TotalEffectiveStake:  totalEffectiveStake,
 				ReleasePercent:       releasePercent,
 				BlockRewardAmount:    rewardAmount,
@@ -295,7 +302,10 @@ func (m *Manager) handleBlockReward(block *protocolparser.BlockSnapshot) error {
 					RewardType:           item.RewardType,
 					Height:               item.Height,
 					StakeAmountSnapshot:  item.StakeAmountSnapshot,
+					IndexerTotalStake:    item.IndexerTotalStake,
+					IndexerEffectivePct:  item.IndexerEffectivePct,
 					StakeAmountEffective: item.StakeAmountEffective,
+					PlatformTotalStake:   item.PlatformTotalStake,
 					TotalEffectiveStake:  item.TotalEffectiveStake,
 					ReleasePercent:       item.ReleasePercent,
 					BlockRewardAmount:    item.BlockRewardAmount,

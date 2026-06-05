@@ -13,7 +13,10 @@ type StakePendingReward struct {
 	RewardType           string
 	Height               uint32
 	StakeAmountSnapshot  uint64
+	IndexerTotalStake    uint64
+	IndexerEffectivePct  float64
 	StakeAmountEffective uint64
+	PlatformTotalStake   uint64
 	TotalEffectiveStake  uint64
 	ReleasePercent       float64
 	BlockRewardAmount    uint64
@@ -38,7 +41,8 @@ func ListStakePendingRewardsByUserAddress(ctx context.Context, userAddress strin
 	const sqlText = `
 SELECT
     user_address, indexer_id, stake_address, reward_type,
-    height, stake_amount_snapshot, stake_amount_effective, total_effective_stake,
+    height, stake_amount_snapshot, indexer_total_stake, indexer_effective_percent,
+    stake_amount_effective, platform_total_stake, total_effective_stake,
     release_percent, block_reward_amount, indexer_ratio, pending_amount
 FROM stake_pending_rewards
 WHERE user_address = $1
@@ -56,7 +60,10 @@ LIMIT $2 OFFSET $3
 		var item StakePendingReward
 		var allocateHeight int64
 		var stakeAmountSnapshot int64
+		var indexerTotalStake int64
+		var indexerEffectivePercent float64
 		var stakeAmountEffective int64
+		var platformTotalStake int64
 		var totalEffectiveStake int64
 		var releasePercent float64
 		var blockRewardAmount int64
@@ -69,7 +76,10 @@ LIMIT $2 OFFSET $3
 			&item.RewardType,
 			&allocateHeight,
 			&stakeAmountSnapshot,
+			&indexerTotalStake,
+			&indexerEffectivePercent,
 			&stakeAmountEffective,
+			&platformTotalStake,
 			&totalEffectiveStake,
 			&releasePercent,
 			&blockRewardAmount,
@@ -84,8 +94,20 @@ LIMIT $2 OFFSET $3
 		if stakeAmountSnapshot < 0 {
 			stakeAmountSnapshot = 0
 		}
+		if indexerTotalStake < 0 {
+			indexerTotalStake = 0
+		}
+		if indexerEffectivePercent < 0 || math.IsNaN(indexerEffectivePercent) || math.IsInf(indexerEffectivePercent, 0) {
+			indexerEffectivePercent = 0
+		}
+		if indexerEffectivePercent > 100 {
+			indexerEffectivePercent = 100
+		}
 		if stakeAmountEffective < 0 {
 			stakeAmountEffective = 0
+		}
+		if platformTotalStake < 0 {
+			platformTotalStake = 0
 		}
 		if totalEffectiveStake < 0 {
 			totalEffectiveStake = 0
@@ -107,7 +129,10 @@ LIMIT $2 OFFSET $3
 		}
 		item.Height = uint32(allocateHeight)
 		item.StakeAmountSnapshot = uint64(stakeAmountSnapshot)
+		item.IndexerTotalStake = uint64(indexerTotalStake)
+		item.IndexerEffectivePct = indexerEffectivePercent
 		item.StakeAmountEffective = uint64(stakeAmountEffective)
+		item.PlatformTotalStake = uint64(platformTotalStake)
 		item.TotalEffectiveStake = uint64(totalEffectiveStake)
 		item.ReleasePercent = releasePercent
 		item.BlockRewardAmount = uint64(blockRewardAmount)
@@ -163,7 +188,8 @@ func ListStakePendingRewardsByHeight(ctx context.Context, height uint32) ([]Stak
 	const sqlText = `
 SELECT
     user_address, indexer_id, stake_address, reward_type,
-    height, stake_amount_snapshot, stake_amount_effective, total_effective_stake,
+    height, stake_amount_snapshot, indexer_total_stake, indexer_effective_percent,
+    stake_amount_effective, platform_total_stake, total_effective_stake,
     release_percent, block_reward_amount, indexer_ratio, pending_amount
 FROM stake_pending_rewards
 WHERE height = $1
@@ -180,7 +206,10 @@ ORDER BY id ASC
 		var item StakePendingReward
 		var allocateHeight int64
 		var stakeAmountSnapshot int64
+		var indexerTotalStake int64
+		var indexerEffectivePercent float64
 		var stakeAmountEffective int64
+		var platformTotalStake int64
 		var totalEffectiveStake int64
 		var releasePercent float64
 		var blockRewardAmount int64
@@ -193,7 +222,10 @@ ORDER BY id ASC
 			&item.RewardType,
 			&allocateHeight,
 			&stakeAmountSnapshot,
+			&indexerTotalStake,
+			&indexerEffectivePercent,
 			&stakeAmountEffective,
+			&platformTotalStake,
 			&totalEffectiveStake,
 			&releasePercent,
 			&blockRewardAmount,
@@ -208,8 +240,20 @@ ORDER BY id ASC
 		if stakeAmountSnapshot < 0 {
 			stakeAmountSnapshot = 0
 		}
+		if indexerTotalStake < 0 {
+			indexerTotalStake = 0
+		}
+		if indexerEffectivePercent < 0 || math.IsNaN(indexerEffectivePercent) || math.IsInf(indexerEffectivePercent, 0) {
+			indexerEffectivePercent = 0
+		}
+		if indexerEffectivePercent > 100 {
+			indexerEffectivePercent = 100
+		}
 		if stakeAmountEffective < 0 {
 			stakeAmountEffective = 0
+		}
+		if platformTotalStake < 0 {
+			platformTotalStake = 0
 		}
 		if totalEffectiveStake < 0 {
 			totalEffectiveStake = 0
@@ -231,7 +275,10 @@ ORDER BY id ASC
 		}
 		item.Height = uint32(allocateHeight)
 		item.StakeAmountSnapshot = uint64(stakeAmountSnapshot)
+		item.IndexerTotalStake = uint64(indexerTotalStake)
+		item.IndexerEffectivePct = indexerEffectivePercent
 		item.StakeAmountEffective = uint64(stakeAmountEffective)
+		item.PlatformTotalStake = uint64(platformTotalStake)
 		item.TotalEffectiveStake = uint64(totalEffectiveStake)
 		item.ReleasePercent = releasePercent
 		item.BlockRewardAmount = uint64(blockRewardAmount)
@@ -264,15 +311,19 @@ func upsertStakePendingReward(ctx context.Context, execer stakeExecer, item Stak
 	const sqlText = `
 INSERT INTO stake_pending_rewards (
     user_address, indexer_id, stake_address, reward_type, height,
-    stake_amount_snapshot, stake_amount_effective, total_effective_stake,
+    stake_amount_snapshot, indexer_total_stake, indexer_effective_percent,
+    stake_amount_effective, platform_total_stake, total_effective_stake,
     release_percent, block_reward_amount, indexer_ratio, pending_amount
-) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
 ON CONFLICT (height, indexer_id, stake_address) DO UPDATE
 SET
     user_address = EXCLUDED.user_address,
     reward_type = EXCLUDED.reward_type,
     stake_amount_snapshot = EXCLUDED.stake_amount_snapshot,
+    indexer_total_stake = EXCLUDED.indexer_total_stake,
+    indexer_effective_percent = EXCLUDED.indexer_effective_percent,
     stake_amount_effective = EXCLUDED.stake_amount_effective,
+    platform_total_stake = EXCLUDED.platform_total_stake,
     total_effective_stake = EXCLUDED.total_effective_stake,
     release_percent = EXCLUDED.release_percent,
     block_reward_amount = EXCLUDED.block_reward_amount,
@@ -287,7 +338,10 @@ SET
 		item.RewardType,
 		item.Height,
 		item.StakeAmountSnapshot,
+		item.IndexerTotalStake,
+		item.IndexerEffectivePct,
 		item.StakeAmountEffective,
+		item.PlatformTotalStake,
 		item.TotalEffectiveStake,
 		item.ReleasePercent,
 		item.BlockRewardAmount,

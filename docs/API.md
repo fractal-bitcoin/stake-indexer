@@ -261,7 +261,10 @@ Each `detail` item includes:
 - `reward_type`
 - `height`
 - `stake_amount_snapshot`
+- `indexer_total_stake`
+- `indexer_effective_percent`
 - `stake_amount_effective`
+- `platform_total_stake`
 - `total_effective_stake`
 - `release_percent`
 - `block_reward_amount`
