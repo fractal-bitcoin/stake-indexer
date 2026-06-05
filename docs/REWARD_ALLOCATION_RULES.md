@@ -128,7 +128,7 @@ For each eligible indexer:
 Penalty rule:
 
 - in phase 1, when the indexer penalty flag is `true`, `effective_stake = raw_stake * 95 / 100`
-- in phase 2, when the indexer penalty flag is `true`, `effective_stake` decreases by `delay_submit_stage2_step_percent` percent of `raw_stake` for every full `delay_submit_stage2_step_blocks` delayed blocks, down to 0%
+- in phase 2, when the indexer penalty flag is `true`, `effective_stake` decreases by `delay_submit_stage2_step_percent` percent of `raw_stake` each time the delay exceeds another `delay_submit_stage2_step_blocks` interval, down to 0%
 - otherwise, `effective_stake = raw_stake`
 
 Indexers with `effective_stake = 0` do not participate in allocation.

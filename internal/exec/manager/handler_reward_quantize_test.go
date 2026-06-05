@@ -62,11 +62,15 @@ func TestResolveDelaySubmitStakePercent(t *testing.T) {
 		want  uint64
 	}{
 		{99, 100},
-		{100, 90},
+		{100, 100},
+		{101, 90},
 		{199, 90},
-		{200, 80},
-		{900, 10},
-		{1000, 0},
+		{200, 90},
+		{201, 80},
+		{900, 20},
+		{901, 10},
+		{1000, 10},
+		{1001, 0},
 		{1100, 0},
 	}
 	for _, tc := range cases {
@@ -97,8 +101,40 @@ func TestResolveDelaySubmitStakePercent_Configurable(t *testing.T) {
 		Height:           1100,
 		VerifyStatus:     pgdb.StakeProofVerifyValidDelayed,
 	}
-	if got := resolveDelaySubmitStakePercent(checkpoint, proof); got != 60 {
-		t.Fatalf("expected configurable stage-2 percent 60, got %d", got)
+	if got := resolveDelaySubmitStakePercent(checkpoint, proof); got != 80 {
+		t.Fatalf("expected configurable stage-2 percent 80, got %d", got)
+	}
+}
+
+func TestResolveDelaySubmitStakePercent_EachBlockPenaltyAfterFirstBlock(t *testing.T) {
+	origin := conf.StakeRewardCfg
+	conf.StakeRewardCfg.DelaySubmitStage2StepBlocks = 1
+	conf.StakeRewardCfg.DelaySubmitStage2StepPercent = 10
+	t.Cleanup(func() {
+		conf.StakeRewardCfg = origin
+	})
+
+	checkpoint := conf.StakeRewardCfg.Stage2StartHeight
+	proof := pgdb.StakeProof{
+		ProveBlockHeight: 1000,
+		VerifyStatus:     pgdb.StakeProofVerifyValidDelayed,
+	}
+
+	cases := []struct {
+		delay uint32
+		want  uint64
+	}{
+		{1, 100},
+		{2, 90},
+		{3, 80},
+		{10, 10},
+		{11, 0},
+	}
+	for _, tc := range cases {
+		proof.Height = proof.ProveBlockHeight + tc.delay
+		if got := resolveDelaySubmitStakePercent(checkpoint, proof); got != tc.want {
+			t.Fatalf("stage-2 delay %d stake percent expected %d, got %d", tc.delay, tc.want, got)
+		}
 	}
 }
 
@@ -126,5 +162,30 @@ func TestResolveRewardStakePercentByIndexer_UsesRewardAllowlistWindow(t *testing
 	outside := resolveRewardStakePercentByIndexer(200, proofs)
 	if len(outside) != 2 || outside["12:3"] != 100 || outside["12:4"] != 100 {
 		t.Fatalf("outside allowlist window expected both indexers, got %#v", outside)
+	}
+}
+
+func TestResolveRewardStakePercentByIndexer_UsesBestProof(t *testing.T) {
+	origin := conf.StakeRewardCfg
+	cfg := conf.DefaultConfig()
+	conf.StakeRewardCfg = cfg
+	t.Cleanup(func() {
+		conf.StakeRewardCfg = origin
+	})
+
+	checkpoint := conf.StakeRewardCfg.Stage2StartHeight
+	proofs := []pgdb.StakeProof{
+		{IndexerID: "12:3", ProveBlockHeight: 1000, Height: 1200, VerifyStatus: pgdb.StakeProofVerifyValidDelayed},
+		{IndexerID: "12:3", ProveBlockHeight: 1000, Height: 1000, VerifyStatus: pgdb.StakeProofVerifyValid},
+		{IndexerID: "12:4", ProveBlockHeight: 1000, Height: 1400, VerifyStatus: pgdb.StakeProofVerifyValidDelayed},
+		{IndexerID: "12:4", ProveBlockHeight: 1000, Height: 1200, VerifyStatus: pgdb.StakeProofVerifyValidDelayed},
+	}
+
+	got := resolveRewardStakePercentByIndexer(checkpoint, proofs)
+	if got["12:3"] != 100 {
+		t.Fatalf("indexer with valid proof should use 100 percent, got %#v", got)
+	}
+	if got["12:4"] != 90 {
+		t.Fatalf("indexer with multiple delayed proofs should use best percent 90, got %#v", got)
 	}
 }

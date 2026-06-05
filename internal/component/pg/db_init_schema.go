@@ -180,13 +180,6 @@ CREATE INDEX IF NOT EXISTS idx_stake_pending_rewards_stake_address ON stake_pend
 CREATE INDEX IF NOT EXISTS idx_stake_pending_rewards_reward_type ON stake_pending_rewards(reward_type);
 CREATE INDEX IF NOT EXISTS idx_stake_pending_rewards_indexer_height ON stake_pending_rewards(indexer_id, height DESC);
 
-ALTER TABLE stake_allocated_rewards ADD COLUMN IF NOT EXISTS indexer_total_stake BIGINT NOT NULL DEFAULT 0;
-ALTER TABLE stake_allocated_rewards ADD COLUMN IF NOT EXISTS indexer_effective_percent DOUBLE PRECISION NOT NULL DEFAULT 100;
-ALTER TABLE stake_allocated_rewards ADD COLUMN IF NOT EXISTS platform_total_stake BIGINT NOT NULL DEFAULT 0;
-ALTER TABLE stake_pending_rewards ADD COLUMN IF NOT EXISTS indexer_total_stake BIGINT NOT NULL DEFAULT 0;
-ALTER TABLE stake_pending_rewards ADD COLUMN IF NOT EXISTS indexer_effective_percent DOUBLE PRECISION NOT NULL DEFAULT 100;
-ALTER TABLE stake_pending_rewards ADD COLUMN IF NOT EXISTS platform_total_stake BIGINT NOT NULL DEFAULT 0;
-
 CREATE TABLE IF NOT EXISTS stake_bindings (
     stake_address TEXT PRIMARY KEY,
     user_address TEXT NOT NULL,

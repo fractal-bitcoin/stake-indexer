@@ -102,13 +102,13 @@ func TestResolveStakeProofValidityUsesStage2DelayRules(t *testing.T) {
 			want:   StakeProofVerifyValidDelayed,
 		},
 		{
-			name:   "one hundred percent penalty is delayed",
+			name:   "last penalty step remains delayed",
 			height: 2000,
 			want:   StakeProofVerifyValidDelayed,
 		},
 		{
-			name:   "over one hundred percent penalty expires",
-			height: 2100,
+			name:   "one hundred percent penalty expires",
+			height: 2001,
 			want:   StakeProofVerifyExpired,
 		},
 	}

@@ -362,12 +362,12 @@ func resolveStage2StakeProofStatus(proof StakeProof, rules StakeProofValidityRul
 	}
 
 	delayedBlocks := proof.Height - proof.ProveBlockHeight
-	steps := uint64(delayedBlocks / stepBlocks)
+	steps := uint64((delayedBlocks - 1) / stepBlocks)
 	penaltyPercent := steps * stepPercent
 	if penaltyPercent >= 100 {
 		return StakeProofVerifyExpired
 	}
-	if delayedBlocks > stepBlocks {
+	if penaltyPercent > 0 {
 		return StakeProofVerifyValidDelayed
 	}
 	return StakeProofVerifyValid

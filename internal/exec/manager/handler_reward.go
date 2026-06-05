@@ -386,7 +386,7 @@ func resolveRewardStakePercentByIndexer(rewardHeight uint32, proofs []pgdb.Stake
 		}
 		stakePercent := resolveDelaySubmitStakePercent(rewardHeight, item)
 		currentPercent, exists := stakePercentByIndexer[indexerID]
-		if !exists || stakePercent < currentPercent {
+		if !exists || stakePercent > currentPercent {
 			stakePercentByIndexer[indexerID] = stakePercent
 		}
 	}
@@ -669,7 +669,7 @@ func resolveDelaySubmitStakePercent(rewardHeight uint32, proof pgdb.StakeProof) 
 		return 100
 	}
 	delayedBlocks := proof.Height - proof.ProveBlockHeight
-	steps := uint64(delayedBlocks / stepBlocks)
+	steps := uint64((delayedBlocks - 1) / stepBlocks)
 	penaltyPercent := steps * stepPercent
 	if penaltyPercent >= 100 {
 		return 0
