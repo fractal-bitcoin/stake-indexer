@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -26,6 +27,8 @@ const (
 	fip101ClaimReward = "FIP-101:claim_reward"
 	MaxIndexerNameLen = 64
 )
+
+var indexerNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}$`)
 
 type ParsedProtocolTx struct {
 	Snapshot TxSnapshot
@@ -394,7 +397,7 @@ func ParseFIP101PayloadFromCSV(raw []byte, actorPubKey []byte, actorAddress stri
 			return nil, nil, err
 		}
 		name := TruncateRunes(strings.TrimSpace(record[5]), MaxIndexerNameLen)
-		if name == "" {
+		if !IsValidIndexerName(name) {
 			return nil, nil, fmt.Errorf("invalid register name")
 		}
 		payload.Fields[OpFieldIndexerName] = name
@@ -499,6 +502,10 @@ func TruncateRunes(raw string, limit int) string {
 		return raw
 	}
 	return string(rs[:limit])
+}
+
+func IsValidIndexerName(name string) bool {
+	return indexerNamePattern.MatchString(name)
 }
 
 func mapOperationToTag(op string) string {

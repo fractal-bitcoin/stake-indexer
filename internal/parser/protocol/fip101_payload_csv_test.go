@@ -1,6 +1,7 @@
 package protocolparser
 
 import (
+	"strings"
 	"testing"
 
 	"stake_indexer/model"
@@ -51,6 +52,47 @@ func TestParseFIP101PayloadFromCSV_NewProtocolOpNames(t *testing.T) {
 				t.Fatalf("unexpected tag: got=%s want=%s", payload.Tag, tc.wantTag)
 			}
 		})
+	}
+}
+
+func TestIsValidIndexerName(t *testing.T) {
+	valid64 := "A" + strings.Repeat("z", 63)
+	tests := []struct {
+		name string
+		want bool
+	}{
+		{name: "Indexer01", want: true},
+		{name: "node.alpha_01-main", want: true},
+		{name: "my indexer", want: true},
+		{name: valid64, want: true},
+		{name: "", want: false},
+		{name: "_indexer", want: false},
+		{name: "-indexer", want: false},
+		{name: ".indexer", want: false},
+		{name: " indexer", want: false},
+		{name: "indexer@1", want: false},
+		{name: "中文节点", want: false},
+		{name: "A" + strings.Repeat("z", 64), want: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := IsValidIndexerName(tc.name); got != tc.want {
+				t.Fatalf("IsValidIndexerName(%q)=%v want=%v", tc.name, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestParseFIP101PayloadFromCSV_RegisterRejectsInvalidIndexerName(t *testing.T) {
+	actorPubKey := make([]byte, 32)
+	actorAddr := "bc1qactoraddressxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+	actorType := "2"
+	csv := "fip101,1,register_indexer,1000,bc1qnlvzhv535uzq2t0jtfkfjfhs4jtaycrln2tetn,indexer@1"
+
+	payload, _, err := ParseFIP101PayloadFromCSV([]byte(csv), actorPubKey, actorAddr, actorType)
+	if err == nil {
+		t.Fatalf("expected invalid indexer name to be rejected, got payload: %#v", payload)
 	}
 }
 
