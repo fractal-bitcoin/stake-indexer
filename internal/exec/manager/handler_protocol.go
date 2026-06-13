@@ -115,9 +115,7 @@ func (m *Manager) buildStakeClaimedReward(txHeight uint32, tx *protocolparser.Tx
 	if m == nil || tx == nil || payload == nil {
 		return nil, nil
 	}
-
-	actorAddress := strings.TrimSpace(payload.Get(protocolparser.OpFieldActorAddr))
-	if !isSystemClaimActorAddress(actorAddress) {
+	if payload.Tag != protocolparser.TagPledgedReward {
 		return nil, nil
 	}
 

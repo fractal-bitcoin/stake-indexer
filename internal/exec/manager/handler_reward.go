@@ -106,15 +106,16 @@ func (m *Manager) handleBlockReward(block *protocolparser.BlockSnapshot) error {
 		return nil
 	}
 
-	stakePercentByIndexer := make(map[string]uint64, len(validProofs))
-	for _, item := range validProofs {
-		if item.IndexerID == "" {
-			continue
-		}
-		stakePercent := resolveDelaySubmitStakePercent(block.Height, item)
-		currentPercent, exists := stakePercentByIndexer[item.IndexerID]
-		if !exists || stakePercent < currentPercent {
-			stakePercentByIndexer[item.IndexerID] = stakePercent
+	stakePercentByIndexer := resolveRewardStakePercentByIndexer(block.Height, validProofs)
+	if len(stakePercentByIndexer) < len(validProofs) {
+		for _, item := range validProofs {
+			if strings.TrimSpace(item.IndexerID) == "" || conf.StakeRewardCfg.IsIndexerRewardAllowedAtHeight(item.IndexerID, block.Height) {
+				continue
+			}
+			logger.Log.Info("handleBlockReward skip indexer outside reward allowlist",
+				zap.Uint32("block_height", block.Height),
+				zap.String("indexer_id", item.IndexerID),
+			)
 		}
 	}
 	if len(stakePercentByIndexer) == 0 {
@@ -122,9 +123,10 @@ func (m *Manager) handleBlockReward(block *protocolparser.BlockSnapshot) error {
 	}
 
 	type indexerStakeWeight struct {
-		raw       uint64
-		effective uint64
-		penalized bool
+		raw              uint64
+		effective        uint64
+		effectivePercent uint64
+		penalized        bool
 	}
 
 	indexerStakeTotal := make(map[string]indexerStakeWeight, len(stakePercentByIndexer))
@@ -155,7 +157,7 @@ func (m *Manager) handleBlockReward(block *protocolparser.BlockSnapshot) error {
 			continue
 		}
 
-		indexerStakeTotal[indexerID] = indexerStakeWeight{raw: rawStake, effective: effectiveStake, penalized: penalized}
+		indexerStakeTotal[indexerID] = indexerStakeWeight{raw: rawStake, effective: effectiveStake, effectivePercent: stakePercent, penalized: penalized}
 		totalRawStake += rawStake
 		totalEffectiveStake += effectiveStake
 	}
@@ -230,7 +232,10 @@ func (m *Manager) handleBlockReward(block *protocolparser.BlockSnapshot) error {
 					RewardType:           pgdb.StakeRewardTypeIndexer,
 					Height:               block.Height,
 					StakeAmountSnapshot:  weights.raw,
+					IndexerTotalStake:    weights.raw,
+					IndexerEffectivePct:  float64(weights.effectivePercent),
 					StakeAmountEffective: weights.effective,
+					PlatformTotalStake:   totalRawStake,
 					TotalEffectiveStake:  totalEffectiveStake,
 					ReleasePercent:       releasePercent,
 					BlockRewardAmount:    rewardAmount,
@@ -263,7 +268,10 @@ func (m *Manager) handleBlockReward(block *protocolparser.BlockSnapshot) error {
 				RewardType:           pgdb.StakeRewardTypeStake,
 				Height:               block.Height,
 				StakeAmountSnapshot:  stakeAmount,
+				IndexerTotalStake:    weights.raw,
+				IndexerEffectivePct:  float64(weights.effectivePercent),
 				StakeAmountEffective: weights.effective,
+				PlatformTotalStake:   totalRawStake,
 				TotalEffectiveStake:  totalEffectiveStake,
 				ReleasePercent:       releasePercent,
 				BlockRewardAmount:    rewardAmount,
@@ -294,7 +302,10 @@ func (m *Manager) handleBlockReward(block *protocolparser.BlockSnapshot) error {
 					RewardType:           item.RewardType,
 					Height:               item.Height,
 					StakeAmountSnapshot:  item.StakeAmountSnapshot,
+					IndexerTotalStake:    item.IndexerTotalStake,
+					IndexerEffectivePct:  item.IndexerEffectivePct,
 					StakeAmountEffective: item.StakeAmountEffective,
+					PlatformTotalStake:   item.PlatformTotalStake,
 					TotalEffectiveStake:  item.TotalEffectiveStake,
 					ReleasePercent:       item.ReleasePercent,
 					BlockRewardAmount:    item.BlockRewardAmount,
@@ -337,24 +348,49 @@ func (m *Manager) handleBlockReward(block *protocolparser.BlockSnapshot) error {
 }
 
 func (m *Manager) resolveStakeProofValidityForReward(height uint32, blockHash, stateHash string) ([]pgdb.StakeProof, error) {
+	rules := pgdb.StakeProofValidityRules{
+		DelaySubmitTriggerBlocks:     conf.StakeRewardCfg.DelaySubmitTriggerBlocks,
+		DelaySubmitStage2StepBlocks:  conf.StakeRewardCfg.DelaySubmitStage2StepBlocks,
+		DelaySubmitStage2StepPercent: conf.StakeRewardCfg.DelaySubmitStage2StepPercent,
+		Stage2StartHeight:            conf.StakeRewardCfg.Stage2StartHeight,
+	}
 	if m != nil && m.pendingRewardMode {
-		return pgdb.ResolveStakeProofValidityByProveHeightReadOnly(
+		return pgdb.ResolveStakeProofValidityByProveHeightReadOnlyWithRules(
 			m.ctx,
 			height,
 			resolveRewardProofWindow(height),
 			blockHash,
 			stateHash,
-			conf.StakeRewardCfg.DelaySubmitTriggerBlocks,
+			rules,
 		)
 	}
-	return pgdb.ResolveStakeProofValidityByProveHeight(
+	return pgdb.ResolveStakeProofValidityByProveHeightWithRules(
 		m.ctx,
 		height,
 		resolveRewardProofWindow(height),
 		blockHash,
 		stateHash,
-		conf.StakeRewardCfg.DelaySubmitTriggerBlocks,
+		rules,
 	)
+}
+
+func resolveRewardStakePercentByIndexer(rewardHeight uint32, proofs []pgdb.StakeProof) map[string]uint64 {
+	stakePercentByIndexer := make(map[string]uint64, len(proofs))
+	for _, item := range proofs {
+		indexerID := strings.TrimSpace(item.IndexerID)
+		if indexerID == "" {
+			continue
+		}
+		if !conf.StakeRewardCfg.IsIndexerRewardAllowedAtHeight(indexerID, rewardHeight) {
+			continue
+		}
+		stakePercent := resolveDelaySubmitStakePercent(rewardHeight, item)
+		currentPercent, exists := stakePercentByIndexer[indexerID]
+		if !exists || stakePercent > currentPercent {
+			stakePercentByIndexer[indexerID] = stakePercent
+		}
+	}
+	return stakePercentByIndexer
 }
 
 func (m *Manager) getIndexerInfoKey(indexerID string) string {
@@ -633,7 +669,7 @@ func resolveDelaySubmitStakePercent(rewardHeight uint32, proof pgdb.StakeProof) 
 		return 100
 	}
 	delayedBlocks := proof.Height - proof.ProveBlockHeight
-	steps := uint64(delayedBlocks / stepBlocks)
+	steps := uint64((delayedBlocks - 1) / stepBlocks)
 	penaltyPercent := steps * stepPercent
 	if penaltyPercent >= 100 {
 		return 0

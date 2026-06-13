@@ -111,6 +111,8 @@ Resolved proof status is stored in `stake_proofs.verify_status`.
 
 An indexer is eligible for reward allocation at a reward height when it has at least one resolved proof with status `Valid` or `ValidDelayed`.
 
+If `indexer_allowlist_windows` contains a window matching the reward height (`start_height <= height < end_height`), only indexer IDs listed in that window participate in reward allocation. Proofs and registrations for other syntactically valid indexer IDs are still recognized, but those indexers are excluded from the allocation weight for that reward height. Outside configured windows, this allowlist does not filter eligible indexers.
+
 For each eligible indexer, the penalty flag is:
 
 - `true` when any valid proof for the indexer is `ValidDelayed`
@@ -126,7 +128,7 @@ For each eligible indexer:
 Penalty rule:
 
 - in phase 1, when the indexer penalty flag is `true`, `effective_stake = raw_stake * 95 / 100`
-- in phase 2, when the indexer penalty flag is `true`, `effective_stake` decreases by `delay_submit_stage2_step_percent` percent of `raw_stake` for every full `delay_submit_stage2_step_blocks` delayed blocks, down to 0%
+- in phase 2, when the indexer penalty flag is `true`, `effective_stake` decreases by `delay_submit_stage2_step_percent` percent of `raw_stake` each time the delay exceeds another `delay_submit_stage2_step_blocks` interval, down to 0%
 - otherwise, `effective_stake = raw_stake`
 
 Indexers with `effective_stake = 0` do not participate in allocation.

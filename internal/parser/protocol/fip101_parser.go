@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -23,8 +24,11 @@ const (
 	fip101ContentType = "text/plain;charset=utf-8"
 	fip101Protocol    = "fip101"
 	fip101Version     = "1"
+	fip101ClaimReward = "FIP-101:claim_reward"
 	MaxIndexerNameLen = 64
 )
+
+var indexerNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}$`)
 
 type ParsedProtocolTx struct {
 	Snapshot TxSnapshot
@@ -37,17 +41,15 @@ func ParseProtocolTxFromModelTx(tx *model.Tx, txIdx uint32, blockHeight int64) (
 		return nil, nil
 	}
 
-	payload, actorAddress, bodyCBOR, err := parseStrictFIP101InscriptionFromTx(tx)
-	if err != nil || payload == nil {
-		return nil, err
-	}
-
 	txSnapshot := TxSnapshot{
 		TxID:    tx.TxIdHex,
 		TxIdx:   txIdx,
 		Outputs: make([]OutputSnapshot, 0, len(tx.TxOuts)),
 	}
 	for outIdx, output := range tx.TxOuts {
+		if output == nil {
+			continue
+		}
 		address := AddressFromPkScript(output.PkScript)
 		txSnapshot.Outputs = append(txSnapshot.Outputs, OutputSnapshot{
 			OutputIdx:  uint32(outIdx),
@@ -55,6 +57,28 @@ func ParseProtocolTxFromModelTx(tx *model.Tx, txIdx uint32, blockHeight int64) (
 			AddressKey: strings.TrimSpace(address),
 			PkScript:   append([]byte(nil), output.PkScript...),
 		})
+	}
+
+	if payload, content, ok := parseFIP101ClaimRewardFromOutputs(&txSnapshot); ok {
+		event := &pgdb.FIP101InscriptionEvent{
+			TxID:               tx.TxIdHex,
+			Op:                 payloadTagToOperation(payload.Tag),
+			Height:             blockHeight,
+			InscriptionContent: content,
+			BizInvalidFlags:    0,
+			TxIdx:              txIdx,
+		}
+		populateInscriptionEvent(event, payload, "", &txSnapshot)
+		return &ParsedProtocolTx{
+			Snapshot: txSnapshot,
+			Payload:  payload,
+			Event:    event,
+		}, nil
+	}
+
+	payload, actorAddress, bodyCBOR, err := parseStrictFIP101InscriptionFromTx(tx)
+	if err != nil || payload == nil {
+		return nil, err
 	}
 
 	event := &pgdb.FIP101InscriptionEvent{
@@ -133,6 +157,83 @@ func firstNonOpReturnOutputFromSnapshot(tx *TxSnapshot) (*OutputSnapshot, bool) 
 		return out, true
 	}
 	return nil, false
+}
+
+func parseFIP101ClaimRewardFromOutputs(tx *TxSnapshot) (*OpReturnPayload, string, bool) {
+	if tx == nil {
+		return nil, "", false
+	}
+	for i := range tx.Outputs {
+		content, ok := opReturnSinglePushText(tx.Outputs[i].PkScript)
+		if !ok || content != fip101ClaimReward {
+			continue
+		}
+		return &OpReturnPayload{
+			Tag:    TagPledgedReward,
+			Fields: make(map[string]string),
+		}, content, true
+	}
+	return nil, "", false
+}
+
+func opReturnSinglePushText(pkScript []byte) (string, bool) {
+	offset := 0
+	if len(pkScript) > 1 && pkScript[0] == txscript.OP_FALSE && pkScript[1] == txscript.OP_RETURN {
+		offset = 2
+	} else if len(pkScript) > 0 && pkScript[0] == txscript.OP_RETURN {
+		offset = 1
+	} else {
+		return "", false
+	}
+	if offset >= len(pkScript) {
+		return "", false
+	}
+
+	data, next, ok := readScriptPushData(pkScript, offset)
+	if !ok || next != len(pkScript) {
+		return "", false
+	}
+	return string(data), true
+}
+
+func readScriptPushData(script []byte, offset int) ([]byte, int, bool) {
+	if offset < 0 || offset >= len(script) {
+		return nil, offset, false
+	}
+	op := script[offset]
+	offset++
+
+	var size uint64
+	switch {
+	case op >= 0x01 && op <= 0x4b:
+		size = uint64(op)
+	case op == txscript.OP_PUSHDATA1:
+		if offset >= len(script) {
+			return nil, offset, false
+		}
+		size = uint64(script[offset])
+		offset++
+	case op == txscript.OP_PUSHDATA2:
+		if offset+2 > len(script) {
+			return nil, offset, false
+		}
+		size = uint64(script[offset]) | uint64(script[offset+1])<<8
+		offset += 2
+	case op == txscript.OP_PUSHDATA4:
+		if offset+4 > len(script) {
+			return nil, offset, false
+		}
+		size = uint64(script[offset]) | uint64(script[offset+1])<<8 | uint64(script[offset+2])<<16 | uint64(script[offset+3])<<24
+		offset += 4
+	default:
+		return nil, offset, false
+	}
+
+	if size > uint64(len(script)-offset) {
+		return nil, offset, false
+	}
+	end := offset + int(size)
+	return script[offset:end], end, true
 }
 
 func parseStrictFIP101InscriptionFromTx(tx *model.Tx) (*OpReturnPayload, string, []byte, error) {
@@ -296,7 +397,7 @@ func ParseFIP101PayloadFromCSV(raw []byte, actorPubKey []byte, actorAddress stri
 			return nil, nil, err
 		}
 		name := TruncateRunes(strings.TrimSpace(record[5]), MaxIndexerNameLen)
-		if name == "" {
+		if !IsValidIndexerName(name) {
 			return nil, nil, fmt.Errorf("invalid register name")
 		}
 		payload.Fields[OpFieldIndexerName] = name
@@ -352,9 +453,7 @@ func ParseFIP101PayloadFromCSV(raw []byte, actorPubKey []byte, actorAddress stri
 		payload.Fields[OpFieldIndexerID] = indexerID
 		data["indexer_id"] = indexerID
 	case TagPledgedReward:
-		if len(record) != 3 {
-			return nil, nil, fmt.Errorf("invalid claim schema")
-		}
+		return nil, nil, fmt.Errorf("claim must use opreturn %s", fip101ClaimReward)
 	}
 
 	bodyJSON, err := json.Marshal(map[string]interface{}{
@@ -405,6 +504,10 @@ func TruncateRunes(raw string, limit int) string {
 	return string(rs[:limit])
 }
 
+func IsValidIndexerName(name string) bool {
+	return indexerNamePattern.MatchString(name)
+}
+
 func mapOperationToTag(op string) string {
 	switch op {
 	case "register_indexer":
@@ -415,8 +518,6 @@ func mapOperationToTag(op string) string {
 		return TagProveStake
 	case "commission_rate":
 		return TagAllocatRatio
-	case "claim":
-		return TagPledgedReward
 	default:
 		return ""
 	}
@@ -433,7 +534,7 @@ func payloadTagToOperation(tag string) string {
 	case TagAllocatRatio:
 		return "commission_rate"
 	case TagPledgedReward:
-		return "claim"
+		return "claim_reward"
 	default:
 		return strings.ToLower(strings.TrimSpace(tag))
 	}

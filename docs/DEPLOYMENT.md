@@ -103,7 +103,7 @@ The values below describe runtime behavior. Example values in this section use `
   Example with default `20160`: for reward height `1500000`, the service only checks proofs submitted in blocks `1500001` through `1520160`. A proof for `prove_block_height = 1500000` first appearing at height `1520161` is ignored for that reward round.
 
 - `delay_submit_trigger_blocks`
-  The threshold used to mark an otherwise valid proof as delayed. If a proof's submission height is more than `delay_submit_trigger_blocks` blocks after its `prove_block_height`, it is marked `valid_delayed`. In phase 1, the corresponding indexer receives a 5% effective-stake penalty during reward allocation. In phase 2, the step size and penalty percent are controlled by `delay_submit_stage2_step_blocks` and `delay_submit_stage2_step_percent`; default values are `100` and `10`.
+  The threshold used to mark an otherwise valid proof as delayed. If a proof's submission height is more than `delay_submit_trigger_blocks` blocks after its `prove_block_height`, it is marked `valid_delayed`. In phase 1, the corresponding indexer receives a 5% effective-stake penalty during reward allocation. In phase 2, the step size and penalty percent are controlled by `delay_submit_stage2_step_blocks` and `delay_submit_stage2_step_percent`; default values are `100` and `10`, and each penalty step applies only after the delay exceeds another step interval.
   Example with default `120`: if a proof declares `prove_block_height = 1500000` and the proof transaction lands at height `1500100`, it is still treated as normal valid proof. If it lands at height `1500121`, it is marked delayed-valid; phase 1 reduces effective stake to `95%`, while phase 2 applies the configured step rule.
 
 - `start_reward_height`
@@ -124,7 +124,7 @@ The values below describe runtime behavior. Example values in this section use `
   Optional list of reward claim sender address keys. A `claim` inscription is recorded as a claimed reward only when its actor address matches one of these configured sender addresses. Leaving it empty disables claimed-reward recognition and does not affect reward allocation.
 
 - `indexer_allowlist_windows`
-  Optional controlled-launch windows for indexer recognition. Each window has `start_height`, `end_height`, and `indexer_ids`. Windows are half-open: `start_height <= height < end_height`. When the current block height is inside a configured window, only listed indexer IDs are recognized; outside configured windows, all syntactically valid indexer IDs are recognized. This is intended for production launch phases with persisted state, not disposable test mode.
+  Optional controlled-launch windows for reward allocation. Each window has `start_height`, `end_height`, and `indexer_ids`. Windows are half-open: `start_height <= height < end_height`. When a reward height is inside a configured window, only listed indexer IDs participate in reward allocation; outside configured windows, all otherwise eligible indexers can participate. This setting does not restrict indexer registration or protocol `indexer_id` recognition.
 
 - `reward_release_tiers`
   Tiered release percentages keyed by block height. The effective release percent is the highest tier whose `start_height` is less than or equal to the current block height.

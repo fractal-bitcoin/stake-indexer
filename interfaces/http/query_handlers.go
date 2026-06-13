@@ -1083,7 +1083,10 @@ func GetUserRewardRecords(c *gin.Context) (rData ResponseData, err error) {
 			RewardType:           item.RewardType,
 			Height:               item.Height,
 			StakeAmountSnapshot:  item.StakeAmountSnapshot,
+			IndexerTotalStake:    item.IndexerTotalStake,
+			IndexerEffectivePct:  item.IndexerEffectivePct,
 			StakeAmountEffective: item.StakeAmountEffective,
+			PlatformTotalStake:   item.PlatformTotalStake,
 			TotalEffectiveStake:  item.TotalEffectiveStake,
 			ReleasePercent:       item.ReleasePercent,
 			BlockRewardAmount:    item.BlockRewardAmount,
@@ -1246,7 +1249,7 @@ type MempoolProtocolQueryParams struct {
 
 func isSupportedProtocolOp(op string) bool {
 	switch op {
-	case "", protocolparser.TagRegister, protocolparser.TagStake, protocolparser.TagProveStake, protocolparser.TagPledgedReward, protocolparser.TagAllocatRatio:
+	case "", protocolparser.TagRegister, protocolparser.TagStake, protocolparser.TagProveStake, protocolparser.TagPledgedReward, protocolparser.TagAllocatRatio, "claim_reward":
 		return true
 	default:
 		return false

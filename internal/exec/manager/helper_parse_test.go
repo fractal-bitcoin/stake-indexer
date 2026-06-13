@@ -28,7 +28,7 @@ func TestNormalizeIndexerIDAtHeight_AllowsOutsideAllowlistWindow(t *testing.T) {
 	}
 }
 
-func TestNormalizeIndexerIDAtHeight_AllowlistWindow(t *testing.T) {
+func TestNormalizeIndexerIDAtHeight_IgnoresAllowlistWindow(t *testing.T) {
 	m := NewManager(conf.DefaultConfig())
 	backup := conf.StakeRewardCfg
 	t.Cleanup(func() {
@@ -42,13 +42,13 @@ func TestNormalizeIndexerIDAtHeight_AllowlistWindow(t *testing.T) {
 	conf.StakeRewardCfg = cfg
 
 	if _, err := m.normalizeIndexerIDAtHeight("12:3", 100); err != nil {
-		t.Fatalf("allowlisted id should pass at start height, got error: %v", err)
+		t.Fatalf("listed id should pass at start height, got error: %v", err)
 	}
-	if _, err := m.normalizeIndexerIDAtHeight("12:4", 100); err == nil {
-		t.Fatalf("non-allowlisted id should fail inside allowlist window")
+	if _, err := m.normalizeIndexerIDAtHeight("12:4", 100); err != nil {
+		t.Fatalf("unlisted id should still pass inside allowlist window: %v", err)
 	}
-	if _, err := m.normalizeIndexerIDAtHeight("12:4", 199); err == nil {
-		t.Fatalf("non-allowlisted id should fail before end height")
+	if _, err := m.normalizeIndexerIDAtHeight("12:4", 199); err != nil {
+		t.Fatalf("unlisted id should still pass before end height: %v", err)
 	}
 	if _, err := m.normalizeIndexerIDAtHeight("12:4", 200); err != nil {
 		t.Fatalf("end height should be excluded from allowlist window, got error: %v", err)

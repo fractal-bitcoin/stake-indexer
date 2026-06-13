@@ -88,7 +88,10 @@ type UserRewardRecordItem struct {
 	RewardType           string  `json:"reward_type"`
 	Height               uint32  `json:"height"`
 	StakeAmountSnapshot  uint64  `json:"stake_amount_snapshot"`
+	IndexerTotalStake    uint64  `json:"indexer_total_stake"`
+	IndexerEffectivePct  float64 `json:"indexer_effective_percent"`
 	StakeAmountEffective uint64  `json:"stake_amount_effective"`
+	PlatformTotalStake   uint64  `json:"platform_total_stake"`
 	TotalEffectiveStake  uint64  `json:"total_effective_stake"`
 	ReleasePercent       float64 `json:"release_percent"`
 	BlockRewardAmount    uint64  `json:"block_reward_amount"`

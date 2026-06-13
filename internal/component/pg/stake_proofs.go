@@ -13,6 +13,7 @@ const (
 	StakeProofVerifyInvalidHash      int16 = 2
 	StakeProofVerifyInvalidDuplicate int16 = 3
 	StakeProofVerifyValidDelayed     int16 = 4
+	StakeProofVerifyExpired          int16 = 5
 )
 
 type StakeProof struct {
@@ -181,7 +182,22 @@ func CountStakeProofsByIndexerID(ctx context.Context, indexerID string) (int, er
 	return count, nil
 }
 
-func ResolveStakeProofValidityByProveHeight(ctx context.Context, proveBlockHeight, proofWindow uint32, blockHash, stateHash string, delaySubmitTriggerBlocks uint32) ([]StakeProof, error) {
+type StakeProofValidityRules struct {
+	DelaySubmitTriggerBlocks     uint32
+	DelaySubmitStage2StepBlocks  uint32
+	DelaySubmitStage2StepPercent uint64
+	Stage2StartHeight            uint32
+}
+
+func ResolveStakeProofValidityByProveHeightWithRules(ctx context.Context, proveBlockHeight, proofWindow uint32, blockHash, stateHash string, rules StakeProofValidityRules) ([]StakeProof, error) {
+	return resolveStakeProofValidityByProveHeight(ctx, proveBlockHeight, proofWindow, blockHash, stateHash, rules, false)
+}
+
+func ResolveStakeProofValidityByProveHeightReadOnlyWithRules(ctx context.Context, proveBlockHeight, proofWindow uint32, blockHash, stateHash string, rules StakeProofValidityRules) ([]StakeProof, error) {
+	return resolveStakeProofValidityByProveHeight(ctx, proveBlockHeight, proofWindow, blockHash, stateHash, rules, true)
+}
+
+func resolveStakeProofValidityByProveHeight(ctx context.Context, proveBlockHeight, proofWindow uint32, blockHash, stateHash string, rules StakeProofValidityRules, readOnly bool) ([]StakeProof, error) {
 	if StakeDB == nil {
 		return nil, nil
 	}
@@ -193,14 +209,18 @@ func ResolveStakeProofValidityByProveHeight(ctx context.Context, proveBlockHeigh
 	if len(proofs) == 0 {
 		return nil, nil
 	}
+
+	validProofs, updates, err := resolveStakeProofValidity(proofs, blockHash, stateHash, rules)
+	if err != nil {
+		return nil, err
+	}
+	if readOnly {
+		return validProofs, nil
+	}
+
 	byTxID := make(map[string]*StakeProof, len(proofs))
 	for i := range proofs {
 		byTxID[proofs[i].TxID] = &proofs[i]
-	}
-
-	validProofs, updates, err := resolveStakeProofValidity(proofs, blockHash, stateHash, delaySubmitTriggerBlocks)
-	if err != nil {
-		return nil, err
 	}
 
 	tx, err := StakeDB.BeginTx(ctx, nil)
@@ -232,26 +252,6 @@ WHERE txid = $2
 	return validProofs, nil
 }
 
-func ResolveStakeProofValidityByProveHeightReadOnly(ctx context.Context, proveBlockHeight, proofWindow uint32, blockHash, stateHash string, delaySubmitTriggerBlocks uint32) ([]StakeProof, error) {
-	if StakeDB == nil {
-		return nil, nil
-	}
-
-	proofs, err := ListStakeProofByProveHeight(ctx, proveBlockHeight, proofWindow)
-	if err != nil {
-		return nil, err
-	}
-	if len(proofs) == 0 {
-		return nil, nil
-	}
-
-	validProofs, _, err := resolveStakeProofValidity(proofs, blockHash, stateHash, delaySubmitTriggerBlocks)
-	if err != nil {
-		return nil, err
-	}
-	return validProofs, nil
-}
-
 type hashGroup struct {
 	latest     *StakeProof
 	duplicates []*StakeProof
@@ -259,7 +259,7 @@ type hashGroup struct {
 
 type verifyUpdate struct{ status int16 }
 
-func resolveStakeProofValidity(proofs []StakeProof, blockHash, stateHash string, delaySubmitTriggerBlocks uint32) ([]StakeProof, map[string]verifyUpdate, error) {
+func resolveStakeProofValidity(proofs []StakeProof, blockHash, stateHash string, rules StakeProofValidityRules) ([]StakeProof, map[string]verifyUpdate, error) {
 	blockHash = strings.ToLower(strings.TrimSpace(blockHash))
 	stateHash = strings.ToLower(strings.TrimSpace(stateHash))
 	if blockHash == "" {
@@ -306,16 +306,15 @@ func resolveStakeProofValidity(proofs []StakeProof, blockHash, stateHash string,
 				continue
 			}
 
-			latestStatus := StakeProofVerifyValid
-			if shouldApplyDelaySubmitPenalty(*group.latest, delaySubmitTriggerBlocks) {
-				latestStatus = StakeProofVerifyValidDelayed
-			}
+			latestStatus := resolveValidStakeProofStatus(*group.latest, rules)
 
 			if strings.EqualFold(hash, expectedHash) {
 				updates[group.latest.TxID] = verifyUpdate{status: latestStatus}
-				item := *group.latest
-				item.VerifyStatus = latestStatus
-				validProofs = append(validProofs, item)
+				if latestStatus != StakeProofVerifyExpired {
+					item := *group.latest
+					item.VerifyStatus = latestStatus
+					validProofs = append(validProofs, item)
+				}
 				for _, dup := range group.duplicates {
 					if dup == nil {
 						continue
@@ -343,6 +342,35 @@ func computeStakeProofHash(indexerID, blockHash, stateHash string) string {
 		strings.ToLower(strings.TrimSpace(stateHash))
 	sum := sha256.Sum256([]byte(payload))
 	return fmt.Sprintf("%x", sum[:])
+}
+
+func resolveValidStakeProofStatus(proof StakeProof, rules StakeProofValidityRules) int16 {
+	if rules.Stage2StartHeight > 0 && proof.ProveBlockHeight >= rules.Stage2StartHeight {
+		return resolveStage2StakeProofStatus(proof, rules)
+	}
+	if shouldApplyDelaySubmitPenalty(proof, rules.DelaySubmitTriggerBlocks) {
+		return StakeProofVerifyValidDelayed
+	}
+	return StakeProofVerifyValid
+}
+
+func resolveStage2StakeProofStatus(proof StakeProof, rules StakeProofValidityRules) int16 {
+	stepBlocks := rules.DelaySubmitStage2StepBlocks
+	stepPercent := rules.DelaySubmitStage2StepPercent
+	if proof.Height <= proof.ProveBlockHeight || stepBlocks == 0 || stepPercent == 0 {
+		return StakeProofVerifyValid
+	}
+
+	delayedBlocks := proof.Height - proof.ProveBlockHeight
+	steps := uint64((delayedBlocks - 1) / stepBlocks)
+	penaltyPercent := steps * stepPercent
+	if penaltyPercent >= 100 {
+		return StakeProofVerifyExpired
+	}
+	if penaltyPercent > 0 {
+		return StakeProofVerifyValidDelayed
+	}
+	return StakeProofVerifyValid
 }
 
 func shouldApplyDelaySubmitPenalty(proof StakeProof, delaySubmitTriggerBlocks uint32) bool {
