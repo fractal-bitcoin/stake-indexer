@@ -352,7 +352,9 @@ func (m *Manager) resolveStakeProofValidityForReward(height uint32, blockHash, s
 		DelaySubmitTriggerBlocks:     conf.StakeRewardCfg.DelaySubmitTriggerBlocks,
 		DelaySubmitStage2StepBlocks:  conf.StakeRewardCfg.DelaySubmitStage2StepBlocks,
 		DelaySubmitStage2StepPercent: conf.StakeRewardCfg.DelaySubmitStage2StepPercent,
+		DelaySubmitStage3Blocks:      conf.StakeRewardCfg.DelaySubmitStage3Blocks,
 		Stage2StartHeight:            conf.StakeRewardCfg.Stage2StartHeight,
+		Stage3StartHeight:            conf.StakeRewardCfg.Stage3StartHeight,
 	}
 	if m != nil && m.pendingRewardMode {
 		return pgdb.ResolveStakeProofValidityByProveHeightReadOnlyWithRules(
@@ -660,11 +662,12 @@ func shouldUseRewardTruncation(height uint32) bool {
 	return height >= conf.StakeRewardCfg.Stage2StartHeight
 }
 
+func shouldUseStage3DelayPenalty(height uint32) bool {
+	return conf.StakeRewardCfg.Stage3StartHeight > 0 && height >= conf.StakeRewardCfg.Stage3StartHeight
+}
+
 func resolveRewardProofWindow(height uint32) uint32 {
-	if shouldUseRewardTruncation(height) {
-		return constant.REWARD_ALLOCATION_STAGE2_PROOF_WINDOW
-	}
-	return conf.StakeRewardCfg.ProofWindow
+	return conf.StakeRewardCfg.RewardProofWindowByHeight(height)
 }
 
 func resolveDelaySubmitStakePercent(rewardHeight uint32, proof pgdb.StakeProof) uint64 {
@@ -674,18 +677,42 @@ func resolveDelaySubmitStakePercent(rewardHeight uint32, proof pgdb.StakeProof) 
 	if !shouldUseRewardTruncation(rewardHeight) {
 		return delaySubmitStage1StakePercent
 	}
-	stepBlocks := conf.StakeRewardCfg.DelaySubmitStage2StepBlocks
-	stepPercent := conf.StakeRewardCfg.DelaySubmitStage2StepPercent
-	if proof.Height <= proof.ProveBlockHeight || stepBlocks == 0 || stepPercent == 0 {
+	if proof.Height <= proof.ProveBlockHeight {
 		return 100
 	}
 	delayedBlocks := proof.Height - proof.ProveBlockHeight
+	if shouldUseStage3DelayPenalty(rewardHeight) {
+		return resolveStage3DelaySubmitStakePercent(delayedBlocks)
+	}
+	return resolveStage2DelaySubmitStakePercent(delayedBlocks)
+}
+
+func resolveStage2DelaySubmitStakePercent(delayedBlocks uint32) uint64 {
+	stepBlocks := conf.StakeRewardCfg.DelaySubmitStage2StepBlocks
+	stepPercent := conf.StakeRewardCfg.DelaySubmitStage2StepPercent
+	if stepBlocks == 0 || stepPercent == 0 {
+		return 100
+	}
 	steps := uint64((delayedBlocks - 1) / stepBlocks)
 	penaltyPercent := steps * stepPercent
 	if penaltyPercent >= 100 {
 		return 0
 	}
 	return 100 - penaltyPercent
+}
+
+func resolveStage3DelaySubmitStakePercent(delayedBlocks uint32) uint64 {
+	blocks := conf.StakeRewardCfg.DelaySubmitStage3Blocks
+	if len(blocks) != 7 {
+		blocks = []uint32{720, 840, 960, 1080, 1200, 1320, 1440}
+	}
+	percents := []uint64{100, 95, 87, 75, 59, 35, 10}
+	for i, maxDelayBlocks := range blocks {
+		if delayedBlocks <= maxDelayBlocks {
+			return percents[i]
+		}
+	}
+	return 0
 }
 
 func quantizeReward(value float64, useTruncation bool) uint64 {

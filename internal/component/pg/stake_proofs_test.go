@@ -150,6 +150,54 @@ func TestResolveStakeProofValidityUsesStage2DelayRules(t *testing.T) {
 	}
 }
 
+func TestResolveStakeProofValidityUsesStage3DelayRules(t *testing.T) {
+	rules := StakeProofValidityRules{
+		Stage2StartHeight:       1000,
+		Stage3StartHeight:       2000,
+		DelaySubmitStage3Blocks: []uint32{720, 840, 960, 1080, 1200, 1320, 1440},
+	}
+
+	tests := []struct {
+		name   string
+		delay  uint32
+		want   int16
+		valids int
+	}{
+		{name: "six hours remains valid", delay: 720, want: StakeProofVerifyValid, valids: 1},
+		{name: "after six hours delayed", delay: 721, want: StakeProofVerifyValidDelayed, valids: 1},
+		{name: "before twelve hours delayed", delay: 1439, want: StakeProofVerifyValidDelayed, valids: 1},
+		{name: "twelve hours remains delayed", delay: 1440, want: StakeProofVerifyValidDelayed, valids: 1},
+		{name: "after twelve hours expires", delay: 1441, want: StakeProofVerifyExpired, valids: 0},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			expectedHash := computeStakeProofHash("42664:1", "aa", "bb")
+			proofs := []StakeProof{
+				{
+					IndexerID:        "42664:1",
+					ProveBlockHeight: 2000,
+					ProveDataHash:    expectedHash,
+					TxID:             "tx-valid",
+					Height:           2000 + tc.delay,
+					TxIdx:            0,
+				},
+			}
+
+			validProofs, updates, err := resolveStakeProofValidity(proofs, "aa", "bb", rules)
+			if err != nil {
+				t.Fatalf("resolveStakeProofValidity() error = %v", err)
+			}
+			if updates["tx-valid"].status != tc.want {
+				t.Fatalf("tx-valid status = %d, want %d", updates["tx-valid"].status, tc.want)
+			}
+			if len(validProofs) != tc.valids {
+				t.Fatalf("valid proofs len = %d, want %d", len(validProofs), tc.valids)
+			}
+		})
+	}
+}
+
 func TestResolveStakeProofValidityStage1KeepsTriggerRule(t *testing.T) {
 	rules := StakeProofValidityRules{
 		DelaySubmitTriggerBlocks:     120,

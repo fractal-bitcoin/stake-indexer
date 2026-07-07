@@ -2,6 +2,11 @@ package indexer
 
 import "strings"
 
+// Legacy indexer rewards claimed before height 1919900 were paid to the
+// indexer's owner address instead of the configured reward address, and the
+// claim records were not attributed back to the corresponding indexer. This
+// map records the affected claim transactions so reindexing can classify them
+// correctly and the startup backfill can repair data written by older builds.
 var legacyIndexerClaimRewardFixes = map[string]string{
 	"a56daf10ee0ba7f121292806ff39907a281f8c6c2da9f970c0530180ad88d451": "1842346:1",
 	"3177448b0aa35555ea8ded4b05e523ef95d6ff2513917702c3dae2b1e28b66cb": "1851552:554",

@@ -49,12 +49,13 @@ Core runtime settings live in `conf/config.yaml`, including:
 - `index_start_height`
 - `batch_block_count`
 - `slow_lag_blocks`
-- `pending_reward_lag_blocks`
 - `proof_window`
 - `delay_submit_trigger_blocks`
 - `delay_submit_stage2_step_blocks`
 - `delay_submit_stage2_step_percent`
+- `delay_submit_stage3_blocks`
 - `stage2_start_height`
+- `stage3_start_height`
 - `start_reward_height`
 - `state_api_base_url`
 - `state_api_auth`
