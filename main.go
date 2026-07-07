@@ -75,6 +75,7 @@ func bootstrap() error {
 	if err := idxbootstrap.CleanupLegacyIndexerArtifactsOnStartup(context.Background()); err != nil {
 		return fmt.Errorf("cleanup legacy indexer artifacts on startup failed: %w", err)
 	}
+	idxbootstrap.StartLegacyIndexerClaimRewardBackfill(context.Background(), indexer.LegacyIndexerClaimRewardFixes())
 	if err := idxbootstrap.InitIndexerStatusCache(context.Background()); err != nil {
 		return fmt.Errorf("init indexer status cache failed: %w", err)
 	}

@@ -16,6 +16,12 @@ type StakeClaimedReward struct {
 	TxIdx       uint32
 }
 
+type LegacyIndexerClaimRewardFixResult struct {
+	Exists  bool
+	Fixed   bool
+	Updated bool
+}
+
 func SumClaimedRewards(ctx context.Context) (uint64, error) {
 	if StakeDB == nil {
 		return 0, nil
@@ -53,6 +59,50 @@ func SumClaimedIndexerRewards(ctx context.Context, userAddress, indexerID string
 		return 0, fmt.Errorf("sum claimed indexer rewards failed: %w", err)
 	}
 	return sum, nil
+}
+
+func EnsureLegacyIndexerClaimedRewardFixed(ctx context.Context, txid, indexerID string) (LegacyIndexerClaimRewardFixResult, error) {
+	return ensureLegacyIndexerClaimedRewardFixed(ctx, StakeDB, txid, indexerID)
+}
+
+func ensureLegacyIndexerClaimedRewardFixed(ctx context.Context, execer interface {
+	stakeExecer
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+}, txid, indexerID string) (LegacyIndexerClaimRewardFixResult, error) {
+	result := LegacyIndexerClaimRewardFixResult{}
+	if execer == nil || txid == "" || indexerID == "" {
+		return result, nil
+	}
+
+	const updateSQL = `
+UPDATE stake_claimed_rewards
+SET reward_type = $2, indexer_id = $3
+WHERE txid = $1
+  AND (COALESCE(reward_type, 'stake') <> $2 OR COALESCE(indexer_id, '') <> $3)`
+	updateResult, err := execer.ExecContext(ctx, updateSQL, txid, StakeRewardTypeIndexer, indexerID)
+	if err != nil {
+		return result, fmt.Errorf("fix legacy indexer claimed reward failed: %w", err)
+	}
+	if updateResult != nil {
+		rowsAffected, err := updateResult.RowsAffected()
+		if err == nil && rowsAffected > 0 {
+			result.Updated = true
+		}
+	}
+
+	const selectSQL = `SELECT reward_type, indexer_id FROM stake_claimed_rewards WHERE txid = $1`
+	var rewardType string
+	var actualIndexerID string
+	err = execer.QueryRowContext(ctx, selectSQL, txid).Scan(&rewardType, &actualIndexerID)
+	if err == sql.ErrNoRows {
+		return result, nil
+	}
+	if err != nil {
+		return result, fmt.Errorf("query legacy indexer claimed reward failed: %w", err)
+	}
+	result.Exists = true
+	result.Fixed = rewardType == StakeRewardTypeIndexer && actualIndexerID == indexerID
+	return result, nil
 }
 
 func UpsertStakeClaimedReward(ctx context.Context, item StakeClaimedReward) error {

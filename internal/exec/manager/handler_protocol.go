@@ -126,6 +126,11 @@ func (m *Manager) buildStakeClaimedReward(txHeight uint32, tx *protocolparser.Tx
 
 	rewardType := pgdb.StakeRewardTypeStake
 	indexerID := strings.TrimSpace(payload.Get(protocolparser.OpFieldIndexerID))
+	if indexerID == "" && m.cfg.FixLegacyIndexerClaimRewards {
+		if fixedIndexerID, ok := ResolveLegacyIndexerClaimReward(tx.TxID); ok {
+			indexerID = fixedIndexerID
+		}
+	}
 	if indexerID != "" {
 		rewardType = pgdb.StakeRewardTypeIndexer
 	}

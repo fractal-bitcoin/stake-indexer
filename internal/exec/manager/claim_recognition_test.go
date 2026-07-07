@@ -101,6 +101,97 @@ func TestBuildStakeClaimedReward_UsesIndexerRewardTypeWithIndexerID(t *testing.T
 	}
 }
 
+func TestBuildStakeClaimedReward_FixesLegacyIndexerClaimByDefault(t *testing.T) {
+	m := NewManager(conf.DefaultConfig())
+	tx := &protocolparser.TxSnapshot{
+		TxID:  "a56daf10ee0ba7f121292806ff39907a281f8c6c2da9f970c0530180ad88d451",
+		TxIdx: 7,
+		Outputs: []protocolparser.OutputSnapshot{
+			{OutputIdx: 0, AddressKey: "legacy-indexer-receiver", Satoshi: 12345},
+		},
+	}
+	payload := &protocolparser.OpReturnPayload{
+		Tag:    protocolparser.TagPledgedReward,
+		Fields: map[string]string{},
+	}
+
+	item, err := m.buildStakeClaimedReward(100, tx, payload)
+	if err != nil {
+		t.Fatalf("buildStakeClaimedReward returned error: %v", err)
+	}
+	if item == nil {
+		t.Fatalf("buildStakeClaimedReward returned nil item")
+	}
+	if item.RewardType != pgdb.StakeRewardTypeIndexer {
+		t.Fatalf("legacy claim reward type expected %s, got %s", pgdb.StakeRewardTypeIndexer, item.RewardType)
+	}
+	if item.IndexerID != "1842346:1" {
+		t.Fatalf("legacy claim indexer id expected 1842346:1, got %s", item.IndexerID)
+	}
+}
+
+func TestBuildStakeClaimedReward_SkipsLegacyIndexerClaimFixWhenDisabled(t *testing.T) {
+	cfg := conf.DefaultConfig()
+	cfg.FixLegacyIndexerClaimRewards = false
+	m := NewManager(cfg)
+	tx := &protocolparser.TxSnapshot{
+		TxID:  "a56daf10ee0ba7f121292806ff39907a281f8c6c2da9f970c0530180ad88d451",
+		TxIdx: 7,
+		Outputs: []protocolparser.OutputSnapshot{
+			{OutputIdx: 0, AddressKey: "legacy-indexer-receiver", Satoshi: 12345},
+		},
+	}
+	payload := &protocolparser.OpReturnPayload{
+		Tag:    protocolparser.TagPledgedReward,
+		Fields: map[string]string{},
+	}
+
+	item, err := m.buildStakeClaimedReward(100, tx, payload)
+	if err != nil {
+		t.Fatalf("buildStakeClaimedReward returned error: %v", err)
+	}
+	if item == nil {
+		t.Fatalf("buildStakeClaimedReward returned nil item")
+	}
+	if item.RewardType != pgdb.StakeRewardTypeStake {
+		t.Fatalf("legacy claim reward type expected %s when disabled, got %s", pgdb.StakeRewardTypeStake, item.RewardType)
+	}
+	if item.IndexerID != "" {
+		t.Fatalf("legacy claim indexer id expected empty when disabled, got %s", item.IndexerID)
+	}
+}
+
+func TestBuildStakeClaimedReward_PayloadIndexerIDOverridesLegacyFix(t *testing.T) {
+	m := NewManager(conf.DefaultConfig())
+	tx := &protocolparser.TxSnapshot{
+		TxID:  "a56daf10ee0ba7f121292806ff39907a281f8c6c2da9f970c0530180ad88d451",
+		TxIdx: 7,
+		Outputs: []protocolparser.OutputSnapshot{
+			{OutputIdx: 0, AddressKey: "legacy-indexer-receiver", Satoshi: 12345},
+		},
+	}
+	payload := &protocolparser.OpReturnPayload{
+		Tag: protocolparser.TagPledgedReward,
+		Fields: map[string]string{
+			protocolparser.OpFieldIndexerID: "999:1",
+		},
+	}
+
+	item, err := m.buildStakeClaimedReward(100, tx, payload)
+	if err != nil {
+		t.Fatalf("buildStakeClaimedReward returned error: %v", err)
+	}
+	if item == nil {
+		t.Fatalf("buildStakeClaimedReward returned nil item")
+	}
+	if item.RewardType != pgdb.StakeRewardTypeIndexer {
+		t.Fatalf("claim reward type expected %s, got %s", pgdb.StakeRewardTypeIndexer, item.RewardType)
+	}
+	if item.IndexerID != "999:1" {
+		t.Fatalf("payload indexer id expected 999:1, got %s", item.IndexerID)
+	}
+}
+
 func TestBuildStakeClaimedReward_RejectsNonClaimPayload(t *testing.T) {
 	m := NewManager(conf.DefaultConfig())
 	tx := &protocolparser.TxSnapshot{

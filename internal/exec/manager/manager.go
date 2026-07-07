@@ -30,6 +30,7 @@ type mempoolOutpointInfo struct {
 
 type Manager struct {
 	ctx context.Context
+	cfg conf.StakeRewardConfigInfo
 
 	slowState *slowWriteState
 
@@ -63,6 +64,7 @@ func NewPendingManager(cfg conf.StakeRewardConfigInfo) *Manager {
 func newManagerWithMode(cfg conf.StakeRewardConfigInfo, pendingMode bool) *Manager {
 	return &Manager{
 		ctx:                       context.Background(),
+		cfg:                       cfg,
 		slowState:                 newSlowWriteState(),
 		pendingRewardMode:         pendingMode,
 		stakeBindingsLoadedHeight: 0,

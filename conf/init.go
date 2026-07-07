@@ -43,6 +43,7 @@ type StakeRewardConfigInfo struct {
 	StateAPIAuth                 string
 	StateAPITimeout              time.Duration
 	RewardClaimSenderAddressKeys []string
+	FixLegacyIndexerClaimRewards bool
 	IndexerAllowlistWindows      []IndexerAllowlistWindow
 	RewardReleaseTiers           []RewardReleaseTier
 }
@@ -80,6 +81,7 @@ func DefaultConfig() StakeRewardConfigInfo {
 		StartRewardHeight:            1764000,
 		StateAPITimeout:              5 * time.Second,
 		RewardClaimSenderAddressKeys: nil,
+		FixLegacyIndexerClaimRewards: true,
 		IndexerAllowlistWindows:      nil,
 		RewardReleaseTiers:           defaultRewardReleaseTiers(),
 	}
@@ -149,6 +151,9 @@ func Load(configFile string) (StakeRewardConfigInfo, error) {
 		cfg.StateAPITimeout = timeout
 	}
 	cfg.RewardClaimSenderAddressKeys = vp.GetStringSlice("reward_claim_sender_address_keys")
+	if vp.IsSet("fix_legacy_indexer_claim_rewards") {
+		cfg.FixLegacyIndexerClaimRewards = vp.GetBool("fix_legacy_indexer_claim_rewards")
+	}
 
 	if vp.IsSet("indexer_allowlist_windows") {
 		windows, err := parseIndexerAllowlistWindows(vp.Get("indexer_allowlist_windows"))

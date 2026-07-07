@@ -111,6 +111,40 @@ func TestLoad_PendingRewardLagBlocks(t *testing.T) {
 	}
 }
 
+func TestLoad_FixLegacyIndexerClaimRewards_DefaultTrue(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.yaml")
+	content := "index_start_height: 1760000\n"
+	if err := os.WriteFile(configPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("write config failed: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	if !cfg.FixLegacyIndexerClaimRewards {
+		t.Fatalf("expected fix_legacy_indexer_claim_rewards default true")
+	}
+}
+
+func TestLoad_FixLegacyIndexerClaimRewards_False(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.yaml")
+	content := "fix_legacy_indexer_claim_rewards: false\n"
+	if err := os.WriteFile(configPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("write config failed: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	if cfg.FixLegacyIndexerClaimRewards {
+		t.Fatalf("expected fix_legacy_indexer_claim_rewards false when configured")
+	}
+}
+
 func TestLoad_Stage2StartHeight(t *testing.T) {
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "config.yaml")
