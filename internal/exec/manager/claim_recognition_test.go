@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"stake_indexer/conf"
+	pgdb "stake_indexer/internal/component/pg"
 	protocolparser "stake_indexer/internal/parser/protocol"
 )
 
@@ -34,6 +35,69 @@ func TestBuildStakeClaimedReward_UsesFirstOutput(t *testing.T) {
 	}
 	if item.Amount != 12345 {
 		t.Fatalf("unexpected claim amount: %d", item.Amount)
+	}
+}
+
+func TestBuildStakeClaimedReward_UsesStakeRewardTypeByDefault(t *testing.T) {
+	m := NewManager(conf.DefaultConfig())
+	tx := &protocolparser.TxSnapshot{
+		TxID:  "tx-stake-claim",
+		TxIdx: 7,
+		Outputs: []protocolparser.OutputSnapshot{
+			{OutputIdx: 0, AddressKey: "shared-receiver-address", Satoshi: 12345},
+		},
+	}
+	payload := &protocolparser.OpReturnPayload{
+		Tag:    protocolparser.TagPledgedReward,
+		Fields: map[string]string{},
+	}
+
+	item, err := m.buildStakeClaimedReward(100, tx, payload)
+	if err != nil {
+		t.Fatalf("buildStakeClaimedReward returned error: %v", err)
+	}
+	if item == nil {
+		t.Fatalf("buildStakeClaimedReward returned nil item")
+	}
+	if item.RewardType != pgdb.StakeRewardTypeStake {
+		t.Fatalf("stake claim reward type expected %s, got %s", pgdb.StakeRewardTypeStake, item.RewardType)
+	}
+	if item.IndexerID != "" {
+		t.Fatalf("stake claim indexer id expected empty, got %s", item.IndexerID)
+	}
+}
+
+func TestBuildStakeClaimedReward_UsesIndexerRewardTypeWithIndexerID(t *testing.T) {
+	m := NewManager(conf.DefaultConfig())
+	tx := &protocolparser.TxSnapshot{
+		TxID:  "tx-indexer-claim",
+		TxIdx: 7,
+		Outputs: []protocolparser.OutputSnapshot{
+			{OutputIdx: 0, AddressKey: "shared-receiver-address", Satoshi: 12345},
+		},
+	}
+	payload := &protocolparser.OpReturnPayload{
+		Tag: protocolparser.TagPledgedReward,
+		Fields: map[string]string{
+			protocolparser.OpFieldIndexerID: "12:34",
+		},
+	}
+
+	item, err := m.buildStakeClaimedReward(100, tx, payload)
+	if err != nil {
+		t.Fatalf("buildStakeClaimedReward returned error: %v", err)
+	}
+	if item == nil {
+		t.Fatalf("buildStakeClaimedReward returned nil item")
+	}
+	if item.UserAddress != "shared-receiver-address" {
+		t.Fatalf("unexpected recipient address: %s", item.UserAddress)
+	}
+	if item.RewardType != pgdb.StakeRewardTypeIndexer {
+		t.Fatalf("indexer claim reward type expected %s, got %s", pgdb.StakeRewardTypeIndexer, item.RewardType)
+	}
+	if item.IndexerID != "12:34" {
+		t.Fatalf("indexer claim indexer id expected 12:34, got %s", item.IndexerID)
 	}
 }
 

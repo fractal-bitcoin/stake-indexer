@@ -125,11 +125,17 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_stake_indexer_registers_user_address ON sta
 CREATE TABLE IF NOT EXISTS stake_claimed_rewards (
     txid TEXT PRIMARY KEY,
     user_address TEXT NOT NULL,
+    indexer_id TEXT NOT NULL DEFAULT '',
+    reward_type TEXT NOT NULL DEFAULT 'stake',
     amount BIGINT NOT NULL,
     height BIGINT NOT NULL,
     tx_idx INT NOT NULL
 );
+ALTER TABLE stake_claimed_rewards ADD COLUMN IF NOT EXISTS indexer_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE stake_claimed_rewards ADD COLUMN IF NOT EXISTS reward_type TEXT NOT NULL DEFAULT 'stake';
 CREATE INDEX IF NOT EXISTS idx_stake_claimed_rewards_user_address ON stake_claimed_rewards(user_address);
+CREATE INDEX IF NOT EXISTS idx_stake_claimed_rewards_indexer_id ON stake_claimed_rewards(indexer_id);
+CREATE INDEX IF NOT EXISTS idx_stake_claimed_rewards_reward_type ON stake_claimed_rewards(reward_type);
 CREATE INDEX IF NOT EXISTS idx_stake_claimed_rewards_height ON stake_claimed_rewards(height);
 
 CREATE TABLE IF NOT EXISTS stake_allocated_rewards (

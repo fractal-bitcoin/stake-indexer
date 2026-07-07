@@ -124,8 +124,16 @@ func (m *Manager) buildStakeClaimedReward(txHeight uint32, tx *protocolparser.Tx
 		return nil, nil
 	}
 
+	rewardType := pgdb.StakeRewardTypeStake
+	indexerID := strings.TrimSpace(payload.Get(protocolparser.OpFieldIndexerID))
+	if indexerID != "" {
+		rewardType = pgdb.StakeRewardTypeIndexer
+	}
+
 	return &pgdb.StakeClaimedReward{
 		UserAddress: strings.TrimSpace(out.AddressKey),
+		IndexerID:   indexerID,
+		RewardType:  rewardType,
 		Amount:      out.Satoshi,
 		TxID:        tx.TxID,
 		Height:      txHeight,

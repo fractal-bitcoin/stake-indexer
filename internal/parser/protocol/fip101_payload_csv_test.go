@@ -129,6 +129,33 @@ func TestParseProtocolTxFromModelTx_ClaimRewardFromOpReturn(t *testing.T) {
 	}
 }
 
+func TestParseProtocolTxFromModelTx_IndexerClaimRewardFromOpReturn(t *testing.T) {
+	tx := &model.Tx{
+		TxIdHex: "tx-indexer-claim",
+		TxOuts: []*model.TxOut{
+			{Satoshi: 2000, PkScript: p2wpkhScript(0x01)},
+			{PkScript: opReturnScript("FIP-101:claim_reward:12:34")},
+		},
+	}
+
+	parsed, err := ParseProtocolTxFromModelTx(tx, 3, 100)
+	if err != nil {
+		t.Fatalf("parse protocol tx failed: %v", err)
+	}
+	if parsed == nil || parsed.Payload == nil {
+		t.Fatalf("parsed claim payload is nil")
+	}
+	if got := parsed.Payload.Get(OpFieldIndexerID); got != "12:34" {
+		t.Fatalf("unexpected claim indexer id: %s", got)
+	}
+	if parsed.Event == nil || parsed.Event.IndexerID != "12:34" {
+		t.Fatalf("expected event indexer_id 12:34, got %#v", parsed.Event)
+	}
+	if parsed.Event.Amount != 2000 {
+		t.Fatalf("unexpected claim amount: %d", parsed.Event.Amount)
+	}
+}
+
 func TestParseFIP101PayloadFromCSV_ClaimRewardRejected(t *testing.T) {
 	payload, _, err := ParseFIP101PayloadFromCSV([]byte("fip101,1,claim_reward"), nil, "", "")
 	if err == nil {
