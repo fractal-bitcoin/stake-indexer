@@ -101,6 +101,44 @@ func TestBuildStakeClaimedReward_UsesIndexerRewardTypeWithIndexerID(t *testing.T
 	}
 }
 
+func TestBuildStakeClaimedReward_UsesRegisteredIndexerUserAddress(t *testing.T) {
+	m := NewManager(conf.DefaultConfig())
+	m.WaitForUpsert.StakeIndexerRegisterList = append(m.WaitForUpsert.StakeIndexerRegisterList, pgdb.StakeIndexerRegister{
+		IndexerID:   "12:34",
+		UserAddress: "indexer-owner-address",
+	})
+	tx := &protocolparser.TxSnapshot{
+		TxID:  "tx-indexer-claim-owner",
+		TxIdx: 7,
+		Outputs: []protocolparser.OutputSnapshot{
+			{OutputIdx: 0, AddressKey: "reward-receiver-address", Satoshi: 12345},
+		},
+	}
+	payload := &protocolparser.OpReturnPayload{
+		Tag: protocolparser.TagPledgedReward,
+		Fields: map[string]string{
+			protocolparser.OpFieldIndexerID: "12:34",
+		},
+	}
+
+	item, err := m.buildStakeClaimedReward(100, tx, payload)
+	if err != nil {
+		t.Fatalf("buildStakeClaimedReward returned error: %v", err)
+	}
+	if item == nil {
+		t.Fatalf("buildStakeClaimedReward returned nil item")
+	}
+	if item.UserAddress != "indexer-owner-address" {
+		t.Fatalf("expected registered indexer user address, got %s", item.UserAddress)
+	}
+	if item.RewardType != pgdb.StakeRewardTypeIndexer {
+		t.Fatalf("indexer claim reward type expected %s, got %s", pgdb.StakeRewardTypeIndexer, item.RewardType)
+	}
+	if item.IndexerID != "12:34" {
+		t.Fatalf("indexer claim indexer id expected 12:34, got %s", item.IndexerID)
+	}
+}
+
 func TestBuildStakeClaimedReward_FixesLegacyIndexerClaimByDefault(t *testing.T) {
 	m := NewManager(conf.DefaultConfig())
 	tx := &protocolparser.TxSnapshot{

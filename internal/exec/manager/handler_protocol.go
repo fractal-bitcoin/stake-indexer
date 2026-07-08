@@ -124,8 +124,10 @@ func (m *Manager) buildStakeClaimedReward(txHeight uint32, tx *protocolparser.Tx
 		return nil, nil
 	}
 
+	userAddress := strings.TrimSpace(out.AddressKey)
 	rewardType := pgdb.StakeRewardTypeStake
 	indexerID := strings.TrimSpace(payload.Get(protocolparser.OpFieldIndexerID))
+	payloadIndexerID := indexerID
 	if indexerID == "" && m.cfg.FixLegacyIndexerClaimRewards {
 		if fixedIndexerID, ok := ResolveLegacyIndexerClaimReward(tx.TxID); ok {
 			indexerID = fixedIndexerID
@@ -134,9 +136,18 @@ func (m *Manager) buildStakeClaimedReward(txHeight uint32, tx *protocolparser.Tx
 	if indexerID != "" {
 		rewardType = pgdb.StakeRewardTypeIndexer
 	}
+	if payloadIndexerID != "" {
+		indexerUserAddress, err := m.getIndexerUserAddress(payloadIndexerID)
+		if err != nil {
+			return nil, err
+		}
+		if indexerUserAddress != "" {
+			userAddress = indexerUserAddress
+		}
+	}
 
 	return &pgdb.StakeClaimedReward{
-		UserAddress: strings.TrimSpace(out.AddressKey),
+		UserAddress: userAddress,
 		IndexerID:   indexerID,
 		RewardType:  rewardType,
 		Amount:      out.Satoshi,

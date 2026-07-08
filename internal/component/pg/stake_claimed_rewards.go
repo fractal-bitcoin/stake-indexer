@@ -22,6 +22,10 @@ type LegacyIndexerClaimRewardFixResult struct {
 	Updated bool
 }
 
+type IndexerClaimRewardAddressFixResult struct {
+	Updated int64
+}
+
 func SumClaimedRewards(ctx context.Context) (uint64, error) {
 	if StakeDB == nil {
 		return 0, nil
@@ -65,6 +69,10 @@ func EnsureLegacyIndexerClaimedRewardFixed(ctx context.Context, txid, indexerID 
 	return ensureLegacyIndexerClaimedRewardFixed(ctx, StakeDB, txid, indexerID)
 }
 
+func FixIndexerClaimRewardUserAddresses(ctx context.Context) (IndexerClaimRewardAddressFixResult, error) {
+	return fixIndexerClaimRewardUserAddresses(ctx, StakeDB)
+}
+
 func ensureLegacyIndexerClaimedRewardFixed(ctx context.Context, execer interface {
 	stakeExecer
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
@@ -102,6 +110,39 @@ WHERE txid = $1
 	}
 	result.Exists = true
 	result.Fixed = rewardType == StakeRewardTypeIndexer && actualIndexerID == indexerID
+	return result, nil
+}
+
+func fixIndexerClaimRewardUserAddresses(ctx context.Context, execer stakeExecer) (IndexerClaimRewardAddressFixResult, error) {
+	result := IndexerClaimRewardAddressFixResult{}
+	if execer == nil {
+		return result, nil
+	}
+
+	const sqlText = `
+UPDATE stake_claimed_rewards scr
+SET user_address = TRIM(reg.user_address)
+FROM fip101_inscription_events fie
+JOIN stake_indexer_registers reg ON reg.indexer_id = fie.indexer_id
+WHERE scr.txid = fie.txid
+  AND scr.indexer_id = fie.indexer_id
+  AND scr.reward_type = $1
+  AND fie.op = 'claim_reward'
+  AND fie.indexer_id <> ''
+  AND TRIM(reg.user_address) <> ''
+  AND scr.user_address = fie.user_address
+  AND scr.user_address <> TRIM(reg.user_address)`
+	updateResult, err := execer.ExecContext(ctx, sqlText, StakeRewardTypeIndexer)
+	if err != nil {
+		return result, fmt.Errorf("fix indexer claim reward user addresses failed: %w", err)
+	}
+	if updateResult != nil {
+		rowsAffected, err := updateResult.RowsAffected()
+		if err != nil {
+			return result, fmt.Errorf("read fixed indexer claim reward user address rows failed: %w", err)
+		}
+		result.Updated = rowsAffected
+	}
 	return result, nil
 }
 

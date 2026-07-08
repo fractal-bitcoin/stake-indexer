@@ -54,15 +54,24 @@ func runLegacyIndexerClaimRewardBackfill(ctx context.Context, pending map[string
 	lastStatusLog := time.Time{}
 	for {
 		updated, fixed, errCount := backfillLegacyIndexerClaimRewardOnce(ctx, pending)
+		addressFixResult, addressFixErr := pgdb.FixIndexerClaimRewardUserAddresses(ctx)
+		if addressFixErr != nil {
+			errCount++
+			logger.Log.Warn("indexer claim reward user address backfill failed", zap.Error(addressFixErr))
+		}
+		if addressFixResult.Updated > 0 {
+			logger.Log.Info("indexer claim reward user addresses fixed", zap.Int64("updated", addressFixResult.Updated))
+		}
 		if len(pending) == 0 {
-			logger.Log.Info("legacy indexer claim reward backfill completed", zap.Int("fixed", fixed), zap.Int("updated", updated))
+			logger.Log.Info("legacy indexer claim reward backfill completed", zap.Int("fixed", fixed), zap.Int("updated", updated), zap.Int64("address_updated", addressFixResult.Updated))
 			return
 		}
-		if updated > 0 || time.Since(lastStatusLog) >= 5*time.Minute {
+		if updated > 0 || addressFixResult.Updated > 0 || time.Since(lastStatusLog) >= 5*time.Minute {
 			logger.Log.Info("legacy indexer claim reward backfill progress",
 				zap.Int("pending", len(pending)),
 				zap.Int("fixed", fixed),
 				zap.Int("updated", updated),
+				zap.Int64("address_updated", addressFixResult.Updated),
 				zap.Int("errors", errCount))
 			lastStatusLog = time.Now()
 		}

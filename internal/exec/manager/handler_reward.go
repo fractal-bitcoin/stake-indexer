@@ -618,13 +618,24 @@ func (m *Manager) getIndexerRewardAddress(indexerID string) (string, error) {
 }
 
 func (m *Manager) getIndexerUserAddress(indexerID string) (string, error) {
+	indexerID = strings.TrimSpace(indexerID)
 	if indexerID == "" {
 		return "", nil
 	}
 
+	for i := len(m.WaitForUpsert.StakeIndexerRegisterList) - 1; i >= 0; i-- {
+		item := m.WaitForUpsert.StakeIndexerRegisterList[i]
+		if strings.TrimSpace(item.IndexerID) != indexerID {
+			continue
+		}
+		if userAddress := strings.TrimSpace(item.UserAddress); userAddress != "" {
+			return userAddress, nil
+		}
+	}
+
 	reg, err := pgdb.GetStakeIndexerRegisterByID(m.ctx, indexerID)
 	if err != nil {
-		return "", fmt.Errorf("load indexer reward address from pg failed: %w", err)
+		return "", fmt.Errorf("load indexer user address from pg failed: %w", err)
 	}
 	if reg == nil {
 		return "", nil
