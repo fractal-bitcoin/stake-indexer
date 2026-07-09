@@ -1,19 +1,21 @@
 index_start_height: 1760000
 batch_block_count: 500
 slow_lag_blocks: 20160
-pending_reward_lag_blocks: 1000
 proof_window: 20160
 delay_submit_trigger_blocks: 120
 delay_submit_stage2_step_blocks: 100
 delay_submit_stage2_step_percent: 10
+delay_submit_stage3_blocks: [720, 840, 960, 1080, 1200, 1320, 1440]
 commission_activation_blocks: 20160
 stage2_start_height: 1824480
+stage3_start_height: 1925280
 enable_mempool_indexing: false
 start_reward_height: 1764000
 state_api_base_url: ""
 state_api_auth: ""
 state_api_timeout: 5s
 reward_claim_sender_address_keys: []
+fix_legacy_indexer_claim_rewards: true
 indexer_allowlist_windows:
   - start_height: 1764000
     end_height: 1844640

@@ -165,15 +165,47 @@ func parseFIP101ClaimRewardFromOutputs(tx *TxSnapshot) (*OpReturnPayload, string
 	}
 	for i := range tx.Outputs {
 		content, ok := opReturnSinglePushText(tx.Outputs[i].PkScript)
-		if !ok || content != fip101ClaimReward {
+		if !ok {
 			continue
 		}
-		return &OpReturnPayload{
-			Tag:    TagPledgedReward,
-			Fields: make(map[string]string),
-		}, content, true
+		payload, ok := parseClaimRewardOpReturnContent(content)
+		if !ok {
+			continue
+		}
+		return payload, content, true
 	}
 	return nil, "", false
+}
+
+func parseClaimRewardOpReturnContent(content string) (*OpReturnPayload, bool) {
+	content = strings.TrimSpace(content)
+	if content == fip101ClaimReward {
+		return &OpReturnPayload{Tag: TagPledgedReward, Fields: make(map[string]string)}, true
+	}
+	if !strings.HasPrefix(content, fip101ClaimReward) {
+		return nil, false
+	}
+	rest := strings.TrimSpace(strings.TrimPrefix(content, fip101ClaimReward))
+	if rest == "" {
+		return &OpReturnPayload{Tag: TagPledgedReward, Fields: make(map[string]string)}, true
+	}
+	if strings.HasPrefix(rest, ",") || strings.HasPrefix(rest, ":") {
+		rest = strings.TrimSpace(rest[1:])
+	}
+	fields := strings.FieldsFunc(rest, func(r rune) bool {
+		return r == ',' || r == ' ' || r == '\t' || r == '\n' || r == '\r'
+	})
+	if len(fields) == 0 {
+		return &OpReturnPayload{Tag: TagPledgedReward, Fields: make(map[string]string)}, true
+	}
+	indexerID := strings.TrimSpace(fields[0])
+	if !IsIndexerIDHeightTxIdx(indexerID) {
+		return nil, false
+	}
+	return &OpReturnPayload{
+		Tag:    TagPledgedReward,
+		Fields: map[string]string{OpFieldIndexerID: indexerID},
+	}, true
 }
 
 func opReturnSinglePushText(pkScript []byte) (string, bool) {

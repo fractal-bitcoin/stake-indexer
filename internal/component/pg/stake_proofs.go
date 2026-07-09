@@ -186,7 +186,9 @@ type StakeProofValidityRules struct {
 	DelaySubmitTriggerBlocks     uint32
 	DelaySubmitStage2StepBlocks  uint32
 	DelaySubmitStage2StepPercent uint64
+	DelaySubmitStage3Blocks      []uint32
 	Stage2StartHeight            uint32
+	Stage3StartHeight            uint32
 }
 
 func ResolveStakeProofValidityByProveHeightWithRules(ctx context.Context, proveBlockHeight, proofWindow uint32, blockHash, stateHash string, rules StakeProofValidityRules) ([]StakeProof, error) {
@@ -345,6 +347,9 @@ func computeStakeProofHash(indexerID, blockHash, stateHash string) string {
 }
 
 func resolveValidStakeProofStatus(proof StakeProof, rules StakeProofValidityRules) int16 {
+	if rules.Stage3StartHeight > 0 && proof.ProveBlockHeight >= rules.Stage3StartHeight {
+		return resolveStage3StakeProofStatus(proof, rules.DelaySubmitStage3Blocks)
+	}
 	if rules.Stage2StartHeight > 0 && proof.ProveBlockHeight >= rules.Stage2StartHeight {
 		return resolveStage2StakeProofStatus(proof, rules)
 	}
@@ -368,6 +373,23 @@ func resolveStage2StakeProofStatus(proof StakeProof, rules StakeProofValidityRul
 		return StakeProofVerifyExpired
 	}
 	if penaltyPercent > 0 {
+		return StakeProofVerifyValidDelayed
+	}
+	return StakeProofVerifyValid
+}
+
+func resolveStage3StakeProofStatus(proof StakeProof, stage3Blocks []uint32) int16 {
+	if proof.Height <= proof.ProveBlockHeight {
+		return StakeProofVerifyValid
+	}
+	if len(stage3Blocks) != 7 {
+		stage3Blocks = []uint32{720, 840, 960, 1080, 1200, 1320, 1440}
+	}
+	delayedBlocks := proof.Height - proof.ProveBlockHeight
+	if delayedBlocks > stage3Blocks[6] {
+		return StakeProofVerifyExpired
+	}
+	if delayedBlocks > stage3Blocks[0] {
 		return StakeProofVerifyValidDelayed
 	}
 	return StakeProofVerifyValid

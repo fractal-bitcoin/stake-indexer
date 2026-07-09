@@ -60,6 +60,53 @@ func TestLoad_DelaySubmitStage2Config(t *testing.T) {
 	}
 }
 
+func TestLoad_DelaySubmitStage3Blocks(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.yaml")
+	content := "delay_submit_stage3_blocks: [10, 20, 30, 40, 50, 60, 70]\n"
+	if err := os.WriteFile(configPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("write config failed: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	expected := []uint32{10, 20, 30, 40, 50, 60, 70}
+	if len(cfg.DelaySubmitStage3Blocks) != len(expected) {
+		t.Fatalf("expected delay_submit_stage3_blocks len %d, got %d", len(expected), len(cfg.DelaySubmitStage3Blocks))
+	}
+	for i := range expected {
+		if cfg.DelaySubmitStage3Blocks[i] != expected[i] {
+			t.Fatalf("delay_submit_stage3_blocks[%d] expected %d, got %d", i, expected[i], cfg.DelaySubmitStage3Blocks[i])
+		}
+	}
+}
+
+func TestLoad_DelaySubmitStage3BlocksRejectsInvalidValues(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{name: "wrong length", content: "delay_submit_stage3_blocks: [10, 20]\n"},
+		{name: "zero", content: "delay_submit_stage3_blocks: [0, 20, 30, 40, 50, 60, 70]\n"},
+		{name: "not increasing", content: "delay_submit_stage3_blocks: [10, 20, 20, 40, 50, 60, 70]\n"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			configPath := filepath.Join(tempDir, "config.yaml")
+			if err := os.WriteFile(configPath, []byte(tt.content), 0o600); err != nil {
+				t.Fatalf("write config failed: %v", err)
+			}
+			if _, err := Load(configPath); err == nil {
+				t.Fatalf("expected load config error")
+			}
+		})
+	}
+}
+
 func TestLoad_CommissionActivationBlocks(t *testing.T) {
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "config.yaml")
@@ -94,10 +141,33 @@ func TestLoad_CommissionActivationBlocks_Default(t *testing.T) {
 	}
 }
 
-func TestLoad_PendingRewardLagBlocks(t *testing.T) {
+func TestRewardProofWindowByHeight(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ProofWindow = 20160
+	cfg.DelaySubmitStage2StepBlocks = 50
+	cfg.DelaySubmitStage2StepPercent = 20
+	cfg.DelaySubmitStage3Blocks = []uint32{10, 20, 30, 40, 50, 60, 70}
+	cfg.Stage2StartHeight = 1000
+	cfg.Stage3StartHeight = 2000
+
+	if got := cfg.RewardProofWindowByHeight(999); got != 20160 {
+		t.Fatalf("stage-1 proof window expected 20160, got %d", got)
+	}
+	if got := cfg.RewardProofWindowByHeight(1000); got != 250 {
+		t.Fatalf("stage-2 proof window expected 250, got %d", got)
+	}
+	if got := cfg.RewardProofWindowByHeight(1999); got != 250 {
+		t.Fatalf("before stage-3 proof window expected 250, got %d", got)
+	}
+	if got := cfg.RewardProofWindowByHeight(2000); got != 70 {
+		t.Fatalf("stage-3 proof window expected 70, got %d", got)
+	}
+}
+
+func TestLoad_FixLegacyIndexerClaimRewards_DefaultTrue(t *testing.T) {
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "config.yaml")
-	content := "pending_reward_lag_blocks: 1200\n"
+	content := "index_start_height: 1760000\n"
 	if err := os.WriteFile(configPath, []byte(content), 0o600); err != nil {
 		t.Fatalf("write config failed: %v", err)
 	}
@@ -106,8 +176,25 @@ func TestLoad_PendingRewardLagBlocks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load config failed: %v", err)
 	}
-	if cfg.PendingRewardLagBlocks != 1200 {
-		t.Fatalf("expected pending_reward_lag_blocks 1200, got %d", cfg.PendingRewardLagBlocks)
+	if !cfg.FixLegacyIndexerClaimRewards {
+		t.Fatalf("expected fix_legacy_indexer_claim_rewards default true")
+	}
+}
+
+func TestLoad_FixLegacyIndexerClaimRewards_False(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.yaml")
+	content := "fix_legacy_indexer_claim_rewards: false\n"
+	if err := os.WriteFile(configPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("write config failed: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	if cfg.FixLegacyIndexerClaimRewards {
+		t.Fatalf("expected fix_legacy_indexer_claim_rewards false when configured")
 	}
 }
 
@@ -125,6 +212,23 @@ func TestLoad_Stage2StartHeight(t *testing.T) {
 	}
 	if cfg.Stage2StartHeight != 1800000 {
 		t.Fatalf("expected stage2_start_height 1800000, got %d", cfg.Stage2StartHeight)
+	}
+}
+
+func TestLoad_Stage3StartHeight(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.yaml")
+	content := "stage3_start_height: 1925280\n"
+	if err := os.WriteFile(configPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("write config failed: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	if cfg.Stage3StartHeight != 1925280 {
+		t.Fatalf("expected stage3_start_height 1925280, got %d", cfg.Stage3StartHeight)
 	}
 }
 

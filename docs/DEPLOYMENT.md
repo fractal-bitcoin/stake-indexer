@@ -66,12 +66,13 @@ Primary runtime settings include:
 - `index_start_height`
 - `batch_block_count`
 - `slow_lag_blocks`
-- `pending_reward_lag_blocks`
 - `proof_window`
 - `delay_submit_trigger_blocks`
 - `delay_submit_stage2_step_blocks`
 - `delay_submit_stage2_step_percent`
+- `delay_submit_stage3_blocks`
 - `stage2_start_height`
+- `stage3_start_height`
 - `start_reward_height`
 - `state_api_base_url`
 - `state_api_auth`
@@ -94,17 +95,25 @@ The values below describe runtime behavior. Example values in this section use `
   The number of committed main-indexer blocks that the reward snapshot consumer intentionally stays behind. The reward sync loop only consumes heights up to `latest_committed_sync_block_height - slow_lag_blocks`, so it never follows the main indexer all the way to the current committed tip.
   Example with default `20160`: if the latest committed block in `sync_blocks` is `1525000`, the reward snapshot loop will only advance up to height `1504840`. Heights above `1504840` are deferred until the main indexer has moved further ahead.
 
-- `pending_reward_lag_blocks`
-  The number of committed main-indexer blocks that the pending reward snapshot consumer intentionally stays behind. The pending reward sync loop only consumes heights up to `latest_committed_sync_block_height - pending_reward_lag_blocks`.
-  Example with default `1000`: if the latest committed block in `sync_blocks` is `1525000`, the pending reward snapshot loop will only advance up to height `1524000`.
-
 - `proof_window`
-  The maximum block-distance after `prove_block_height` within which a proof transaction is still considered for that reward height. When rewards are computed for height `H`, the service loads proofs with `prove_block_height = H` and `proof_tx_height > H` and `proof_tx_height <= H + proof_window`.
-  Example with default `20160`: for reward height `1500000`, the service only checks proofs submitted in blocks `1500001` through `1520160`. A proof for `prove_block_height = 1500000` first appearing at height `1520161` is ignored for that reward round.
+  The phase-1 maximum block-distance after `prove_block_height` within which a proof transaction is still considered for that reward height. When rewards are computed for height `H`, the service loads proofs with `prove_block_height = H` and `proof_tx_height > H` and `proof_tx_height <= H + effective_proof_window`.
+  Example with default `20160`: for a phase-1 reward height `1500000`, the service only checks proofs submitted in blocks `1500001` through `1520160`. A proof for `prove_block_height = 1500000` first appearing at height `1520161` is ignored for that reward round.
 
 - `delay_submit_trigger_blocks`
-  The threshold used to mark an otherwise valid proof as delayed. If a proof's submission height is more than `delay_submit_trigger_blocks` blocks after its `prove_block_height`, it is marked `valid_delayed`. In phase 1, the corresponding indexer receives a 5% effective-stake penalty during reward allocation. In phase 2, the step size and penalty percent are controlled by `delay_submit_stage2_step_blocks` and `delay_submit_stage2_step_percent`; default values are `100` and `10`, and each penalty step applies only after the delay exceeds another step interval.
-  Example with default `120`: if a proof declares `prove_block_height = 1500000` and the proof transaction lands at height `1500100`, it is still treated as normal valid proof. If it lands at height `1500121`, it is marked delayed-valid; phase 1 reduces effective stake to `95%`, while phase 2 applies the configured step rule.
+  The phase-1 threshold used to mark an otherwise valid proof as delayed. If a proof's submission height is more than `delay_submit_trigger_blocks` blocks after its `prove_block_height`, it is marked `valid_delayed`. In phase 1, the corresponding indexer receives a 5% effective-stake penalty during reward allocation.
+  Example with default `120`: if a proof declares `prove_block_height = 1500000` and the proof transaction lands at height `1500100`, it is still treated as normal valid proof. If it lands at height `1500121`, it is marked delayed-valid and phase 1 reduces effective stake to `95%`.
+
+- `delay_submit_stage2_step_blocks` and `delay_submit_stage2_step_percent`
+  Phase-2 delayed-proof penalty settings. Starting from `stage2_start_height`, each penalty step applies only after the delay exceeds another `delay_submit_stage2_step_blocks` interval, and each step subtracts `delay_submit_stage2_step_percent` from the indexer's effective stake. The phase-2 proof window is derived from these two values, so the pending reward consumer waits long enough for all non-expired phase-2 proofs before producing pending reward snapshots.
+  Example with defaults `100` and `10`: delays up to `100` blocks remain normal valid proofs; delays from `101` through `200` blocks receive `90%` effective stake; delays from `901` through `1000` blocks receive `10%`; delays greater than `1000` blocks expire.
+
+- `delay_submit_stage3_blocks`
+  Phase-3 delayed-proof tier boundaries. The list must contain exactly 7 strictly increasing positive block counts. The default `[720, 840, 960, 1080, 1200, 1320, 1440]` maps to effective stake percentages `[100, 95, 87, 75, 59, 35, 10]`; proofs delayed beyond the last boundary expire. The phase-3 proof window is the last value in this list, so the pending reward consumer waits through the configured expiration boundary before snapshotting rewards.
+  Example with the default list: delays up to `720` blocks remain normal valid proofs; `721` through `840` blocks receive `95%`; `841` through `960` receive `87%`; `961` through `1080` receive `75%`; `1081` through `1200` receive `59%`; `1201` through `1320` receive `35%`; `1321` through `1440` receive `10%`; delays greater than `1440` expire.
+
+- `stage2_start_height` and `stage3_start_height`
+  Height checkpoints that switch reward proof validation and allocation behavior. Heights before `stage2_start_height` use phase-1 rules. Heights from `stage2_start_height` up to but not including `stage3_start_height` use phase-2 rules. Heights at or above `stage3_start_height` use phase-3 tier rules.
+  Default examples: phase 2 starts at `1824480`, and phase 3 starts at `1925280`.
 
 - `start_reward_height`
   The first block height from which reward allocation logic is allowed to produce reward records.

@@ -29,13 +29,14 @@ type StakeRewardConfigInfo struct {
 	LoopInterval                 uint32
 	BatchBlockCount              uint32
 	SlowLagBlocks                uint32
-	PendingRewardLagBlocks       uint32
 	ProofWindow                  uint32
 	DelaySubmitTriggerBlocks     uint32
 	DelaySubmitStage2StepBlocks  uint32
 	DelaySubmitStage2StepPercent uint64
+	DelaySubmitStage3Blocks      []uint32
 	CommissionActivationBlocks   uint32
 	Stage2StartHeight            uint32
+	Stage3StartHeight            uint32
 	EnableMempoolIndexing        bool
 	IndexStartHeight             uint32
 	StartRewardHeight            uint32
@@ -43,6 +44,7 @@ type StakeRewardConfigInfo struct {
 	StateAPIAuth                 string
 	StateAPITimeout              time.Duration
 	RewardClaimSenderAddressKeys []string
+	FixLegacyIndexerClaimRewards bool
 	IndexerAllowlistWindows      []IndexerAllowlistWindow
 	RewardReleaseTiers           []RewardReleaseTier
 }
@@ -50,6 +52,10 @@ type StakeRewardConfigInfo struct {
 var (
 	StakeRewardCfg = DefaultConfig()
 )
+
+func defaultDelaySubmitStage3Blocks() []uint32 {
+	return []uint32{720, 840, 960, 1080, 1200, 1320, 1440}
+}
 
 func defaultRewardReleaseTiers() []RewardReleaseTier {
 	return []RewardReleaseTier{
@@ -69,17 +75,19 @@ func DefaultConfig() StakeRewardConfigInfo {
 	return StakeRewardConfigInfo{
 		BatchBlockCount:              500,
 		SlowLagBlocks:                20160,
-		PendingRewardLagBlocks:       1000,
 		ProofWindow:                  20160,
 		DelaySubmitTriggerBlocks:     120,
 		DelaySubmitStage2StepBlocks:  100,
 		DelaySubmitStage2StepPercent: 10,
+		DelaySubmitStage3Blocks:      defaultDelaySubmitStage3Blocks(),
 		CommissionActivationBlocks:   20160,
 		Stage2StartHeight:            1824480,
+		Stage3StartHeight:            1925280,
 		IndexStartHeight:             1760000,
 		StartRewardHeight:            1764000,
 		StateAPITimeout:              5 * time.Second,
 		RewardClaimSenderAddressKeys: nil,
+		FixLegacyIndexerClaimRewards: true,
 		IndexerAllowlistWindows:      nil,
 		RewardReleaseTiers:           defaultRewardReleaseTiers(),
 	}
@@ -115,9 +123,6 @@ func Load(configFile string) (StakeRewardConfigInfo, error) {
 	if lag := vp.GetUint32("slow_lag_blocks"); lag > 0 {
 		cfg.SlowLagBlocks = lag
 	}
-	if lag := vp.GetUint32("pending_reward_lag_blocks"); lag > 0 {
-		cfg.PendingRewardLagBlocks = lag
-	}
 	if proofWindow := vp.GetUint32("proof_window"); proofWindow > 0 {
 		cfg.ProofWindow = proofWindow
 	}
@@ -130,11 +135,21 @@ func Load(configFile string) (StakeRewardConfigInfo, error) {
 	if stepPercent := vp.GetUint64("delay_submit_stage2_step_percent"); stepPercent > 0 {
 		cfg.DelaySubmitStage2StepPercent = stepPercent
 	}
+	if vp.IsSet("delay_submit_stage3_blocks") {
+		blocks, err := parseDelaySubmitStage3Blocks(vp.Get("delay_submit_stage3_blocks"))
+		if err != nil {
+			return cfg, err
+		}
+		cfg.DelaySubmitStage3Blocks = blocks
+	}
 	if activationBlocks := vp.GetUint32("commission_activation_blocks"); activationBlocks > 0 {
 		cfg.CommissionActivationBlocks = activationBlocks
 	}
 	if stage2StartHeight := vp.GetUint32("stage2_start_height"); stage2StartHeight > 0 {
 		cfg.Stage2StartHeight = stage2StartHeight
+	}
+	if stage3StartHeight := vp.GetUint32("stage3_start_height"); stage3StartHeight > 0 {
+		cfg.Stage3StartHeight = stage3StartHeight
 	}
 	cfg.EnableMempoolIndexing = vp.GetBool("enable_mempool_indexing")
 	if vp.IsSet("index_start_height") {
@@ -149,6 +164,9 @@ func Load(configFile string) (StakeRewardConfigInfo, error) {
 		cfg.StateAPITimeout = timeout
 	}
 	cfg.RewardClaimSenderAddressKeys = vp.GetStringSlice("reward_claim_sender_address_keys")
+	if vp.IsSet("fix_legacy_indexer_claim_rewards") {
+		cfg.FixLegacyIndexerClaimRewards = vp.GetBool("fix_legacy_indexer_claim_rewards")
+	}
 
 	if vp.IsSet("indexer_allowlist_windows") {
 		windows, err := parseIndexerAllowlistWindows(vp.Get("indexer_allowlist_windows"))
@@ -204,6 +222,16 @@ func (c StakeRewardConfigInfo) RewardReleasePercentByHeight(height uint32) float
 	return release
 }
 
+func (c StakeRewardConfigInfo) RewardProofWindowByHeight(height uint32) uint32 {
+	if c.Stage3StartHeight > 0 && height >= c.Stage3StartHeight {
+		return c.DelaySubmitStage3Blocks[len(c.DelaySubmitStage3Blocks)-1]
+	}
+	if c.Stage2StartHeight > 0 && height >= c.Stage2StartHeight {
+		return c.DelaySubmitStage2StepBlocks * uint32((100+c.DelaySubmitStage2StepPercent-1)/c.DelaySubmitStage2StepPercent)
+	}
+	return c.ProofWindow
+}
+
 func parseIndexerAllowlistWindows(raw interface{}) ([]IndexerAllowlistWindow, error) {
 	items, ok := raw.([]interface{})
 	if !ok {
@@ -241,6 +269,32 @@ func parseIndexerAllowlistWindows(raw interface{}) ([]IndexerAllowlistWindow, er
 		})
 	}
 	return windows, nil
+}
+
+func parseDelaySubmitStage3Blocks(raw interface{}) ([]uint32, error) {
+	items, ok := raw.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("delay_submit_stage3_blocks must be a list")
+	}
+	if len(items) != 7 {
+		return nil, fmt.Errorf("delay_submit_stage3_blocks must contain exactly 7 values")
+	}
+
+	blocks := make([]uint32, 0, len(items))
+	for i, item := range items {
+		block, err := parseUint32Value(item)
+		if err != nil {
+			return nil, fmt.Errorf("delay_submit_stage3_blocks[%d] invalid: %w", i, err)
+		}
+		if block == 0 {
+			return nil, fmt.Errorf("delay_submit_stage3_blocks[%d] must be greater than 0", i)
+		}
+		if i > 0 && block <= blocks[i-1] {
+			return nil, fmt.Errorf("delay_submit_stage3_blocks must be strictly increasing")
+		}
+		blocks = append(blocks, block)
+	}
+	return blocks, nil
 }
 
 func parseRewardReleaseTiers(raw interface{}) ([]RewardReleaseTier, error) {

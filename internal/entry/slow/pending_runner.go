@@ -38,7 +38,6 @@ func SyncPendingRewardIndexer() {
 	retryInterval := time.Duration(conf.StakeRewardCfg.RetryInterval) * time.Second
 	loopInterval := time.Duration(conf.StakeRewardCfg.LoopInterval) * time.Second
 	batchBlockCount := conf.StakeRewardCfg.BatchBlockCount
-	pendingLagBlocks := conf.StakeRewardCfg.PendingRewardLagBlocks
 	startHeight := conf.StakeRewardCfg.IndexStartHeight
 
 	initPendingRewardSyncManager()
@@ -69,22 +68,25 @@ func SyncPendingRewardIndexer() {
 			time.Sleep(retryInterval)
 			continue
 		}
-		if !exists || indexedHeight <= pendingLagBlocks {
+		if !exists {
 			time.Sleep(retryInterval)
 			continue
 		}
 
-		targetHeight := indexedHeight - pendingLagBlocks
-		if targetHeight < nextHeight {
+		if !canProcessPendingRewardHeight(nextHeight, indexedHeight) {
 			time.Sleep(loopInterval)
 			continue
 		}
 
-		endHeight := targetHeight
+		endHeight := nextHeight
 		if batchBlockCount > 0 {
 			batchEnd := nextHeight + batchBlockCount - 1
-			if batchEnd < endHeight {
-				endHeight = batchEnd
+			for endHeight < batchEnd && canProcessPendingRewardHeight(endHeight+1, indexedHeight) {
+				endHeight++
+			}
+		} else {
+			for endHeight < indexedHeight && canProcessPendingRewardHeight(endHeight+1, indexedHeight) {
+				endHeight++
 			}
 		}
 
@@ -112,14 +114,18 @@ func SyncPendingRewardIndexer() {
 			break
 		}
 		if !progressed {
-			if targetHeight < nextHeight {
-				time.Sleep(loopInterval)
-			} else {
-				time.Sleep(retryInterval)
-			}
+			time.Sleep(retryInterval)
 		}
 	}
 	logger.Log.Info("syncPendingRewardIndexer stopped")
+}
+
+func canProcessPendingRewardHeight(height, indexedHeight uint32) bool {
+	proofWindow := conf.StakeRewardCfg.RewardProofWindowByHeight(height)
+	if indexedHeight <= height {
+		return false
+	}
+	return indexedHeight-height >= proofWindow
 }
 
 func GetPendingConsumerHeight() (uint32, bool, error) {
