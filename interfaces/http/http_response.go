@@ -29,6 +29,7 @@ var (
 	GetIndexerProofsHandler         = wrapHandler(GetIndexerProofs)
 	GetUserStakingsHandler          = wrapHandler(GetUserStakings)
 	GetUserRewardRecordsHandler     = wrapHandler(GetUserRewardRecords)
+	GetUserRewardSummaryHandler     = wrapHandler(GetUserRewardSummary)
 	GetStakeRewardSyncStatusHandler = wrapHandler(GetStakeRewardSyncStatus)
 	GetMempoolProtocolTxsHandler    = wrapHandler(GetMempoolProtocolTxs)
 )

@@ -276,6 +276,32 @@ Notes:
 - Records are returned from persisted allocation data.
 - Records are ordered by `height DESC, id DESC`.
 
+### `GET /users/:address/reward-summary`
+
+Returns the reward balance used to decide whether a payout may be signed.
+
+#### Path Parameters
+
+- `address`: reward recipient address
+
+#### Query Parameters
+
+- `amount` (optional): positive integer amount to validate for payout signing
+
+#### Response
+
+`data` contains:
+
+- `user_address`
+- `allocated_amount`: total persisted reward allocation for the address
+- `claimed_amount`: total amount from confirmed claim transactions
+- `pending_claimed_amount`: total amount from valid unconfirmed claim transactions
+- `claimable_amount`: `max(allocated_amount - claimed_amount - pending_claimed_amount, 0)`
+- `requested_amount`: the validated `amount` query parameter, or `0` when omitted
+- `can_claim`: when `amount` is supplied, whether it is no greater than `claimable_amount`; otherwise whether any amount is claimable
+
+The endpoint includes valid mempool claims in the deduction so a payout already awaiting confirmation is unavailable. It is not an atomic payout reservation; the signer must serialize or otherwise make payout requests idempotent per recipient.
+
 ### `GET /stake-reward/sync-status`
 
 Returns the slow-path reward synchronization status.

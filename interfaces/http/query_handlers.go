@@ -1103,6 +1103,63 @@ func GetUserRewardRecords(c *gin.Context) (rData ResponseData, err error) {
 	return rData, nil
 }
 
+// GetUserRewardSummary returns the currently available reward amount for a user.
+func GetUserRewardSummary(c *gin.Context) (rData ResponseData, err error) {
+	userAddress := strings.TrimSpace(c.Param("address"))
+	if userAddress == "" {
+		rData.Code = errorCodeParamsInvalid
+		rData.Msg = "user address required"
+		return rData, fmt.Errorf("user address required")
+	}
+
+	requestedAmount := uint64(0)
+	hasRequestedAmount := false
+	if rawAmount, ok := c.GetQuery("amount"); ok {
+		hasRequestedAmount = true
+		parsedAmount, parseErr := strconv.ParseUint(strings.TrimSpace(rawAmount), 10, 64)
+		if parseErr != nil || parsedAmount == 0 {
+			rData.Code = errorCodeParamsInvalid
+			rData.Msg = "amount must be a positive unsigned integer"
+			return rData, fmt.Errorf("amount must be a positive unsigned integer")
+		}
+		requestedAmount = parsedAmount
+	}
+
+	balance, err := pgdb.GetStakeRewardBalanceByUserAddress(ctx, userAddress)
+	if err != nil {
+		rData.Code = errorCodeInternal
+		rData.Msg = err.Error()
+		return rData, err
+	}
+	claimableAmount := calculateClaimableRewardAmount(balance.AllocatedAmount, balance.ClaimedAmount, balance.PendingClaimedAmount)
+	canClaim := claimableAmount > 0
+	if hasRequestedAmount {
+		canClaim = requestedAmount <= claimableAmount
+	}
+
+	rData.Data = UserRewardSummaryResp{
+		UserAddress:          userAddress,
+		AllocatedAmount:      balance.AllocatedAmount,
+		ClaimedAmount:        balance.ClaimedAmount,
+		PendingClaimedAmount: balance.PendingClaimedAmount,
+		ClaimableAmount:      claimableAmount,
+		RequestedAmount:      requestedAmount,
+		CanClaim:             canClaim,
+	}
+	return rData, nil
+}
+
+func calculateClaimableRewardAmount(allocatedAmount, claimedAmount, pendingClaimedAmount uint64) uint64 {
+	if pendingClaimedAmount > math.MaxUint64-claimedAmount {
+		return 0
+	}
+	totalClaimedAmount := claimedAmount + pendingClaimedAmount
+	if totalClaimedAmount >= allocatedAmount {
+		return 0
+	}
+	return allocatedAmount - totalClaimedAmount
+}
+
 func GetIndexerStatus(c *gin.Context) (rData ResponseData, err error) {
 	if cached, ok, cacheErr := loadIndexerStatusCache(); cacheErr != nil {
 		rData.Code = errorCodeInternal

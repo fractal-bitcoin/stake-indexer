@@ -104,6 +104,16 @@ type ListUserRewardRecordsResp struct {
 	Detail []UserRewardRecordItem `json:"detail"`
 }
 
+type UserRewardSummaryResp struct {
+	UserAddress          string `json:"user_address"`
+	AllocatedAmount      uint64 `json:"allocated_amount"`
+	ClaimedAmount        uint64 `json:"claimed_amount"`
+	PendingClaimedAmount uint64 `json:"pending_claimed_amount"`
+	ClaimableAmount      uint64 `json:"claimable_amount"`
+	RequestedAmount      uint64 `json:"requested_amount"`
+	CanClaim             bool   `json:"can_claim"`
+}
+
 type IndexerStatusResp struct {
 	TotalIndexers               int    `json:"total_indexers"`
 	TotalStaked                 uint64 `json:"total_staked"`
