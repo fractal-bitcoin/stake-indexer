@@ -16,6 +16,8 @@ state_api_auth: ""
 state_api_timeout: 5s
 reward_claim_sender_address_keys: []
 fix_legacy_indexer_claim_rewards: true
+reward_pool_addresses: []
+reward_pool_balance_cache_ttl: 1m
 indexer_allowlist_windows:
   - start_height: 1764000
     end_height: 1844640

@@ -267,6 +267,7 @@ func main() {
 	apiV1.GET("/users/:address/stakings", api.GetUserStakingsHandler)
 	apiV1.GET("/users/:address/rewards", api.GetUserRewardRecordsHandler)
 	apiV1.GET("/users/:address/reward-summary", api.GetUserRewardSummaryHandler)
+	apiV1.GET("/reward-pool/status", api.GetRewardPoolStatusHandler)
 	apiV1.GET("/stake-reward/sync-status", api.GetStakeRewardSyncStatusHandler)
 	apiV1.GET("/mempool/protocol-txs", api.GetMempoolProtocolTxsHandler)
 

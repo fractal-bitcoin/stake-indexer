@@ -302,6 +302,23 @@ Returns the reward balance used to decide whether a payout may be signed.
 
 The endpoint includes valid mempool claims in the deduction so a payout already awaiting confirmation is unavailable. It is not an atomic payout reservation; the signer must serialize or otherwise make payout requests idempotent per recipient.
 
+### `GET /reward-pool/status`
+
+Returns configured reward-pool accounting data and its confirmed UTXO balance.
+
+`data` contains:
+
+- `pool_addresses`: configured reward-pool addresses
+- `allocated_amount`: all persisted reward allocations
+- `claimed_amount`: total confirmed reward payouts
+- `pending_claimed_amount`: total valid unconfirmed reward payouts
+- `required_reserve_amount`: `max(allocated_amount - claimed_amount, 0)`
+- `post_pending_required_reserve_amount`: reserve required after pending payouts confirm
+- `onchain_balance_amount`: confirmed UTXO balance of all configured pool addresses
+- `balance_height`, `balance_block_hash`, `balance_observed_at`: source-chain position and Unix timestamp of the balance scan
+
+The balance is read with Bitcoin RPC `scantxoutset` and cached for `reward_pool_balance_cache_ttl`. If no pool address is configured, the endpoint returns `code = 1001`; an RPC scan failure returns `code = 1003`.
+
 ### `GET /stake-reward/sync-status`
 
 Returns the slow-path reward synchronization status.

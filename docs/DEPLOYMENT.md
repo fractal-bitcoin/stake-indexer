@@ -132,6 +132,12 @@ The values below describe runtime behavior. Example values in this section use `
 - `reward_claim_sender_address_keys`
   Optional list of reward claim sender address keys. A `claim` inscription is recorded as a claimed reward only when its actor address matches one of these configured sender addresses. Leaving it empty disables claimed-reward recognition and does not affect reward allocation.
 
+- `reward_pool_addresses`
+  Addresses whose confirmed UTXOs fund reward payouts. Configure every address that should count toward reward-pool solvency. `GET /reward-pool/status` compares their aggregate balance against unpaid allocated rewards.
+
+- `reward_pool_balance_cache_ttl`
+  Cache duration for reward-pool UTXO scans. The default is `1m`; set `0s` only when an uncached `scantxoutset` call per request is acceptable.
+
 - `indexer_allowlist_windows`
   Optional controlled-launch windows for reward allocation. Each window has `start_height`, `end_height`, and `indexer_ids`. Windows are half-open: `start_height <= height < end_height`. When a reward height is inside a configured window, only listed indexer IDs participate in reward allocation; outside configured windows, all otherwise eligible indexers can participate. This setting does not restrict indexer registration or protocol `indexer_id` recognition.
 
@@ -322,5 +328,4 @@ Current runtime behavior includes:
 - PostgreSQL schema initialization runs at startup
 - block and mempool processing depend on Bitcoin RPC
 - reward allocation depends on the external state API
-
 
