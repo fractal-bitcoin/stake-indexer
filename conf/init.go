@@ -45,7 +45,6 @@ type StakeRewardConfigInfo struct {
 	StateAPITimeout              time.Duration
 	RewardClaimSenderAddressKeys []string
 	FixLegacyIndexerClaimRewards bool
-	RewardPoolAddresses          []string
 	RewardPoolBalanceCacheTTL    time.Duration
 	IndexerAllowlistWindows      []IndexerAllowlistWindow
 	RewardReleaseTiers           []RewardReleaseTier
@@ -90,7 +89,6 @@ func DefaultConfig() StakeRewardConfigInfo {
 		StateAPITimeout:              5 * time.Second,
 		RewardClaimSenderAddressKeys: nil,
 		FixLegacyIndexerClaimRewards: true,
-		RewardPoolAddresses:          nil,
 		RewardPoolBalanceCacheTTL:    time.Minute,
 		IndexerAllowlistWindows:      nil,
 		RewardReleaseTiers:           defaultRewardReleaseTiers(),
@@ -167,11 +165,10 @@ func Load(configFile string) (StakeRewardConfigInfo, error) {
 	if timeout := vp.GetDuration("state_api_timeout"); timeout > 0 {
 		cfg.StateAPITimeout = timeout
 	}
-	cfg.RewardClaimSenderAddressKeys = vp.GetStringSlice("reward_claim_sender_address_keys")
+	cfg.RewardClaimSenderAddressKeys = normalizeStringSlice(vp.GetStringSlice("reward_claim_sender_address_keys"))
 	if vp.IsSet("fix_legacy_indexer_claim_rewards") {
 		cfg.FixLegacyIndexerClaimRewards = vp.GetBool("fix_legacy_indexer_claim_rewards")
 	}
-	cfg.RewardPoolAddresses = normalizeStringSlice(vp.GetStringSlice("reward_pool_addresses"))
 	if vp.IsSet("reward_pool_balance_cache_ttl") {
 		if ttl := vp.GetDuration("reward_pool_balance_cache_ttl"); ttl >= 0 {
 			cfg.RewardPoolBalanceCacheTTL = ttl

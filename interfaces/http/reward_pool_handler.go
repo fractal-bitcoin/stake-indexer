@@ -12,11 +12,11 @@ import (
 
 // GetRewardPoolStatus returns reward-pool accounting data and its confirmed UTXO balance.
 func GetRewardPoolStatus(c *gin.Context) (rData ResponseData, err error) {
-	poolAddresses := append([]string(nil), conf.StakeRewardCfg.RewardPoolAddresses...)
+	poolAddresses := append([]string(nil), conf.StakeRewardCfg.RewardClaimSenderAddressKeys...)
 	if len(poolAddresses) == 0 {
 		rData.Code = errorCodeParamsInvalid
-		rData.Msg = "reward pool addresses not configured"
-		return rData, fmt.Errorf("reward pool addresses not configured")
+		rData.Msg = "reward claim sender address keys not configured"
+		return rData, fmt.Errorf("reward claim sender address keys not configured")
 	}
 
 	liability, err := pgdb.GetStakeRewardPoolLiability(ctx)

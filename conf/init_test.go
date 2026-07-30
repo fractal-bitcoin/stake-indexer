@@ -164,6 +164,29 @@ func TestRewardProofWindowByHeight(t *testing.T) {
 	}
 }
 
+func TestLoad_RewardClaimSenderAddressKeys(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.yaml")
+	content := "reward_claim_sender_address_keys: [' addr-1 ', 'addr-2', 'addr-1', '']\n"
+	if err := os.WriteFile(configPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("write config failed: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	expected := []string{"addr-1", "addr-2"}
+	if len(cfg.RewardClaimSenderAddressKeys) != len(expected) {
+		t.Fatalf("expected reward_claim_sender_address_keys len %d, got %d", len(expected), len(cfg.RewardClaimSenderAddressKeys))
+	}
+	for i := range expected {
+		if cfg.RewardClaimSenderAddressKeys[i] != expected[i] {
+			t.Fatalf("reward_claim_sender_address_keys[%d] expected %s, got %s", i, expected[i], cfg.RewardClaimSenderAddressKeys[i])
+		}
+	}
+}
+
 func TestLoad_FixLegacyIndexerClaimRewards_DefaultTrue(t *testing.T) {
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "config.yaml")

@@ -130,10 +130,7 @@ The values below describe runtime behavior. Example values in this section use `
   Default example: `5s`.
 
 - `reward_claim_sender_address_keys`
-  Optional list of reward claim sender address keys. A `claim` inscription is recorded as a claimed reward only when its actor address matches one of these configured sender addresses. Leaving it empty disables claimed-reward recognition and does not affect reward allocation.
-
-- `reward_pool_addresses`
-  Addresses whose confirmed UTXOs fund reward payouts. Configure every address that should count toward reward-pool solvency. `GET /reward-pool/status` compares their aggregate balance against unpaid allocated rewards.
+  Optional list of reward payout address keys. A `claim` inscription is recorded as a claimed reward only when its actor address matches one of these configured sender addresses. The same address list is used by `GET /reward-pool/status` to compare aggregate confirmed UTXO balance against unpaid allocated rewards. Leaving it empty disables claimed-reward recognition and reward-pool balance checks.
 
 - `reward_pool_balance_cache_ttl`
   Cache duration for reward-pool UTXO scans. The default is `1m`; set `0s` only when an uncached `scantxoutset` call per request is acceptable.
