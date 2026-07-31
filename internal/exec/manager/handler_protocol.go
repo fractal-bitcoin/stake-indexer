@@ -123,6 +123,9 @@ func (m *Manager) buildStakeClaimedReward(txHeight uint32, tx *protocolparser.Tx
 	if !ok || strings.TrimSpace(out.AddressKey) == "" || out.Satoshi == 0 {
 		return nil, nil
 	}
+	if !m.hasRewardClaimSenderInput(tx) {
+		return nil, nil
+	}
 
 	userAddress := strings.TrimSpace(out.AddressKey)
 	rewardType := pgdb.StakeRewardTypeStake
@@ -165,20 +168,6 @@ func (m *Manager) handleClaimedRewardTx(txHeight uint32, tx *protocolparser.TxSn
 
 	m.WaitForUpsert.StakeClaimedRewardList = append(m.WaitForUpsert.StakeClaimedRewardList, *item)
 	return nil
-}
-
-func isSystemClaimActorAddress(actorAddress string) bool {
-	actorAddress = strings.TrimSpace(actorAddress)
-	if actorAddress == "" {
-		return false
-	}
-
-	for _, configured := range conf.StakeRewardCfg.RewardClaimSenderAddressKeys {
-		if strings.EqualFold(actorAddress, strings.TrimSpace(configured)) {
-			return true
-		}
-	}
-	return false
 }
 
 func (m *Manager) handleUpdateRatioTxLatest(height uint32, tx *protocolparser.TxSnapshot, payload *protocolparser.OpReturnPayload) error {

@@ -44,7 +44,17 @@ func ParseProtocolTxFromModelTx(tx *model.Tx, txIdx uint32, blockHeight int64) (
 	txSnapshot := TxSnapshot{
 		TxID:    tx.TxIdHex,
 		TxIdx:   txIdx,
+		Inputs:  make([]InputSnapshot, 0, len(tx.TxIns)),
 		Outputs: make([]OutputSnapshot, 0, len(tx.TxOuts)),
+	}
+	for inIdx, input := range tx.TxIns {
+		if input == nil {
+			continue
+		}
+		txSnapshot.Inputs = append(txSnapshot.Inputs, InputSnapshot{
+			InputIdx:    uint32(inIdx),
+			OutpointKey: input.InputOutpointKey,
+		})
 	}
 	for outIdx, output := range tx.TxOuts {
 		if output == nil {

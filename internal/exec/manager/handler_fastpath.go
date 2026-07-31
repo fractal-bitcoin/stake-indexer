@@ -15,6 +15,10 @@ type managerFastBlockDeps struct {
 	m *Manager
 }
 
+func (d managerFastBlockDeps) FillTxInputAddresses(tx *stake.TxSnapshot, block *model.Block) {
+	d.m.fillTxInputAddressesFromBlock(tx, block)
+}
+
 func (d managerFastBlockDeps) ResolveBusinessInvalidFlags(currentHeight uint32, tx *stake.TxSnapshot, payload *stake.OpReturnPayload) uint64 {
 	return d.m.resolveFastBlockBusinessInvalidFlags(currentHeight, tx, payload)
 }

@@ -9,11 +9,24 @@ import (
 	protocolparser "stake_indexer/internal/parser/protocol"
 )
 
+const claimSenderAddress = "reward-claim-sender-address"
+
+func newClaimTestManager() *Manager {
+	cfg := conf.DefaultConfig()
+	cfg.RewardClaimSenderAddressKeys = []string{claimSenderAddress}
+	return NewManager(cfg)
+}
+
+func claimTestInputs() []protocolparser.InputSnapshot {
+	return []protocolparser.InputSnapshot{{InputIdx: 0, AddressKey: claimSenderAddress, Satoshi: 1000}}
+}
+
 func TestBuildStakeClaimedReward_UsesFirstOutput(t *testing.T) {
-	m := NewManager(conf.DefaultConfig())
+	m := newClaimTestManager()
 	tx := &protocolparser.TxSnapshot{
-		TxID:  "tx-1",
-		TxIdx: 7,
+		TxID:   "tx-1",
+		TxIdx:  7,
+		Inputs: claimTestInputs(),
 		Outputs: []protocolparser.OutputSnapshot{
 			{OutputIdx: 0, AddressKey: "user-receiver-address", Satoshi: 12345},
 		},
@@ -39,10 +52,11 @@ func TestBuildStakeClaimedReward_UsesFirstOutput(t *testing.T) {
 }
 
 func TestBuildStakeClaimedReward_UsesStakeRewardTypeByDefault(t *testing.T) {
-	m := NewManager(conf.DefaultConfig())
+	m := newClaimTestManager()
 	tx := &protocolparser.TxSnapshot{
-		TxID:  "tx-stake-claim",
-		TxIdx: 7,
+		TxID:   "tx-stake-claim",
+		TxIdx:  7,
+		Inputs: claimTestInputs(),
 		Outputs: []protocolparser.OutputSnapshot{
 			{OutputIdx: 0, AddressKey: "shared-receiver-address", Satoshi: 12345},
 		},
@@ -68,10 +82,11 @@ func TestBuildStakeClaimedReward_UsesStakeRewardTypeByDefault(t *testing.T) {
 }
 
 func TestBuildStakeClaimedReward_UsesIndexerRewardTypeWithIndexerID(t *testing.T) {
-	m := NewManager(conf.DefaultConfig())
+	m := newClaimTestManager()
 	tx := &protocolparser.TxSnapshot{
-		TxID:  "tx-indexer-claim",
-		TxIdx: 7,
+		TxID:   "tx-indexer-claim",
+		TxIdx:  7,
+		Inputs: claimTestInputs(),
 		Outputs: []protocolparser.OutputSnapshot{
 			{OutputIdx: 0, AddressKey: "shared-receiver-address", Satoshi: 12345},
 		},
@@ -102,14 +117,15 @@ func TestBuildStakeClaimedReward_UsesIndexerRewardTypeWithIndexerID(t *testing.T
 }
 
 func TestBuildStakeClaimedReward_UsesRegisteredIndexerUserAddress(t *testing.T) {
-	m := NewManager(conf.DefaultConfig())
+	m := newClaimTestManager()
 	m.WaitForUpsert.StakeIndexerRegisterList = append(m.WaitForUpsert.StakeIndexerRegisterList, pgdb.StakeIndexerRegister{
 		IndexerID:   "12:34",
 		UserAddress: "indexer-owner-address",
 	})
 	tx := &protocolparser.TxSnapshot{
-		TxID:  "tx-indexer-claim-owner",
-		TxIdx: 7,
+		TxID:   "tx-indexer-claim-owner",
+		TxIdx:  7,
+		Inputs: claimTestInputs(),
 		Outputs: []protocolparser.OutputSnapshot{
 			{OutputIdx: 0, AddressKey: "reward-receiver-address", Satoshi: 12345},
 		},
@@ -140,10 +156,11 @@ func TestBuildStakeClaimedReward_UsesRegisteredIndexerUserAddress(t *testing.T) 
 }
 
 func TestBuildStakeClaimedReward_FixesLegacyIndexerClaimByDefault(t *testing.T) {
-	m := NewManager(conf.DefaultConfig())
+	m := newClaimTestManager()
 	tx := &protocolparser.TxSnapshot{
-		TxID:  "a56daf10ee0ba7f121292806ff39907a281f8c6c2da9f970c0530180ad88d451",
-		TxIdx: 7,
+		TxID:   "a56daf10ee0ba7f121292806ff39907a281f8c6c2da9f970c0530180ad88d451",
+		TxIdx:  7,
+		Inputs: claimTestInputs(),
 		Outputs: []protocolparser.OutputSnapshot{
 			{OutputIdx: 0, AddressKey: "legacy-indexer-receiver", Satoshi: 12345},
 		},
@@ -171,10 +188,12 @@ func TestBuildStakeClaimedReward_FixesLegacyIndexerClaimByDefault(t *testing.T) 
 func TestBuildStakeClaimedReward_SkipsLegacyIndexerClaimFixWhenDisabled(t *testing.T) {
 	cfg := conf.DefaultConfig()
 	cfg.FixLegacyIndexerClaimRewards = false
+	cfg.RewardClaimSenderAddressKeys = []string{claimSenderAddress}
 	m := NewManager(cfg)
 	tx := &protocolparser.TxSnapshot{
-		TxID:  "a56daf10ee0ba7f121292806ff39907a281f8c6c2da9f970c0530180ad88d451",
-		TxIdx: 7,
+		TxID:   "a56daf10ee0ba7f121292806ff39907a281f8c6c2da9f970c0530180ad88d451",
+		TxIdx:  7,
+		Inputs: claimTestInputs(),
 		Outputs: []protocolparser.OutputSnapshot{
 			{OutputIdx: 0, AddressKey: "legacy-indexer-receiver", Satoshi: 12345},
 		},
@@ -200,10 +219,11 @@ func TestBuildStakeClaimedReward_SkipsLegacyIndexerClaimFixWhenDisabled(t *testi
 }
 
 func TestBuildStakeClaimedReward_PayloadIndexerIDOverridesLegacyFix(t *testing.T) {
-	m := NewManager(conf.DefaultConfig())
+	m := newClaimTestManager()
 	tx := &protocolparser.TxSnapshot{
-		TxID:  "a56daf10ee0ba7f121292806ff39907a281f8c6c2da9f970c0530180ad88d451",
-		TxIdx: 7,
+		TxID:   "a56daf10ee0ba7f121292806ff39907a281f8c6c2da9f970c0530180ad88d451",
+		TxIdx:  7,
+		Inputs: claimTestInputs(),
 		Outputs: []protocolparser.OutputSnapshot{
 			{OutputIdx: 0, AddressKey: "legacy-indexer-receiver", Satoshi: 12345},
 		},
@@ -231,10 +251,11 @@ func TestBuildStakeClaimedReward_PayloadIndexerIDOverridesLegacyFix(t *testing.T
 }
 
 func TestBuildStakeClaimedReward_RejectsNonClaimPayload(t *testing.T) {
-	m := NewManager(conf.DefaultConfig())
+	m := newClaimTestManager()
 	tx := &protocolparser.TxSnapshot{
-		TxID:  "tx-2",
-		TxIdx: 8,
+		TxID:   "tx-2",
+		TxIdx:  8,
+		Inputs: claimTestInputs(),
 		Outputs: []protocolparser.OutputSnapshot{
 			{OutputIdx: 0, AddressKey: "user-receiver-address", Satoshi: 100},
 		},
@@ -250,6 +271,42 @@ func TestBuildStakeClaimedReward_RejectsNonClaimPayload(t *testing.T) {
 	}
 	if item != nil {
 		t.Fatalf("expected nil item for non-claim payload")
+	}
+}
+
+func TestShouldTrackStakeAddress_IncludesRewardClaimSenderAddress(t *testing.T) {
+	m := newClaimTestManager()
+	if !m.shouldTrackStakeAddress(claimSenderAddress) {
+		t.Fatalf("expected reward claim sender address to be tracked")
+	}
+	if m.shouldTrackStakeAddress("untracked-address") {
+		t.Fatalf("expected unrelated address to be untracked")
+	}
+}
+
+func TestBuildStakeClaimedReward_RejectsUnconfiguredSenderInput(t *testing.T) {
+	m := newClaimTestManager()
+	tx := &protocolparser.TxSnapshot{
+		TxID:  "tx-unconfigured-sender",
+		TxIdx: 7,
+		Inputs: []protocolparser.InputSnapshot{
+			{InputIdx: 0, AddressKey: "other-input-address", Satoshi: 1000},
+		},
+		Outputs: []protocolparser.OutputSnapshot{
+			{OutputIdx: 0, AddressKey: "user-receiver-address", Satoshi: 100},
+		},
+	}
+	payload := &protocolparser.OpReturnPayload{
+		Tag:    protocolparser.TagPledgedReward,
+		Fields: map[string]string{},
+	}
+
+	item, err := m.buildStakeClaimedReward(100, tx, payload)
+	if err != nil {
+		t.Fatalf("buildStakeClaimedReward returned error: %v", err)
+	}
+	if item != nil {
+		t.Fatalf("expected nil item for claim with unconfigured sender input")
 	}
 }
 

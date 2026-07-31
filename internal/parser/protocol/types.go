@@ -26,7 +26,15 @@ type BlockSnapshot struct {
 type TxSnapshot struct {
 	TxID    string
 	TxIdx   uint32
+	Inputs  []InputSnapshot
 	Outputs []OutputSnapshot
+}
+
+type InputSnapshot struct {
+	InputIdx    uint32
+	OutpointKey string
+	AddressKey  string
+	Satoshi     uint64
 }
 
 type OutputSnapshot struct {

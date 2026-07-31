@@ -29,7 +29,7 @@ SELECT
 `
 
 	var liability StakeRewardPoolLiability
-	if err := StakeDB.QueryRowContext(ctx, stakeMempoolClaimOp).Scan(
+	if err := StakeDB.QueryRowContext(ctx, sqlText, stakeMempoolClaimOp).Scan(
 		&liability.AllocatedAmount,
 		&liability.ClaimedAmount,
 		&liability.PendingClaimedAmount,

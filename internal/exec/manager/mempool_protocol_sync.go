@@ -115,7 +115,12 @@ func (m *Manager) parseMempoolProtocolTx(rawHex string, txIdx uint32) (*protocol
 	if tx == nil {
 		return nil, nil
 	}
-	return protocolparser.ParseProtocolTxFromModelTx(tx, txIdx, int64(constant.MEMPOOL_HEIGHT))
+	parsed, err := protocolparser.ParseProtocolTxFromModelTx(tx, txIdx, int64(constant.MEMPOOL_HEIGHT))
+	if err != nil || parsed == nil {
+		return parsed, err
+	}
+	m.fillTxInputAddressesFromMempoolTx(&parsed.Snapshot, tx)
+	return parsed, nil
 }
 
 func (m *Manager) accumulateMempoolStakeBalanceDelta(rawHex string, deltas map[string]int64) error {

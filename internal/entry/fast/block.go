@@ -7,6 +7,7 @@ import (
 )
 
 type BlockDeps interface {
+	FillTxInputAddresses(tx *protocolparser.TxSnapshot, block *model.Block)
 	ResolveBusinessInvalidFlags(currentHeight uint32, tx *protocolparser.TxSnapshot, payload *protocolparser.OpReturnPayload) uint64
 	HandleRegisterTx(height uint32, tx *protocolparser.TxSnapshot, payload *protocolparser.OpReturnPayload) error
 	HandleProofTx(height uint32, tx *protocolparser.TxSnapshot, payload *protocolparser.OpReturnPayload) error
@@ -31,6 +32,7 @@ func HandleBlockByDeps(deps BlockDeps, block *model.Block) error {
 		}
 		txSnapshot := parsed.Snapshot
 		payload := parsed.Payload
+		deps.FillTxInputAddresses(&txSnapshot, block)
 		bizInvalidFlags := deps.ResolveBusinessInvalidFlags(block.Height, &txSnapshot, payload)
 
 		if bizInvalidFlags == BizInvalidNone {

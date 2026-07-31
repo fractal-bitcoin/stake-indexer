@@ -96,8 +96,10 @@ func (m *Manager) shouldTrackStakeAddress(address string) bool {
 	if address == "" {
 		return false
 	}
-	_, ok := m.stakeAddrToIndexer[address]
-	return ok
+	if _, ok := m.stakeAddrToIndexer[address]; ok {
+		return true
+	}
+	return m.isRewardClaimSenderAddress(address)
 }
 
 func (m *Manager) cacheStakeBinding(userAddress, indexerID, addressType, stakeAddress string) {
