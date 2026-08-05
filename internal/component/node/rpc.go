@@ -5,12 +5,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/big"
-	"sort"
 	"stake_indexer/internal/component/log"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/spf13/viper"
 	"github.com/ybbus/jsonrpc"
@@ -18,12 +14,6 @@ import (
 )
 
 var rpcClient jsonrpc.RPCClient
-
-var addressBalanceCache struct {
-	sync.Mutex
-	key      string
-	snapshot AddressBalanceSnapshot
-}
 
 func Init(configFile string) error {
 	vp := viper.New()
@@ -48,112 +38,6 @@ type BlockIndexInfo struct {
 	TxCnt      uint32 `json:"txs"`
 	FileIdx    int    `json:"file"`
 	FileOffset int64  `json:"pos"`
-}
-
-type AddressBalanceSnapshot struct {
-	Satoshi    uint64
-	Height     uint32
-	BlockHash  string
-	ObservedAt time.Time
-}
-
-type scanTxOutSetResult struct {
-	Success     bool        `json:"success"`
-	Height      uint32      `json:"height"`
-	BestBlock   string      `json:"bestblock"`
-	TotalAmount json.Number `json:"total_amount"`
-}
-
-// GetAddressBalanceRPC scans configured address UTXOs and caches the result to avoid repeated full-set scans.
-func GetAddressBalanceRPC(addresses []string, maxAge time.Duration) (AddressBalanceSnapshot, error) {
-	normalized := normalizeAddresses(addresses)
-	if len(normalized) == 0 {
-		return AddressBalanceSnapshot{}, fmt.Errorf("no reward pool addresses configured")
-	}
-	if rpcClient == nil {
-		return AddressBalanceSnapshot{}, fmt.Errorf("bitcoin rpc client is not configured")
-	}
-
-	key := strings.Join(normalized, "|")
-	addressBalanceCache.Lock()
-	defer addressBalanceCache.Unlock()
-	if maxAge > 0 && addressBalanceCache.key == key && !addressBalanceCache.snapshot.ObservedAt.IsZero() && time.Since(addressBalanceCache.snapshot.ObservedAt) < maxAge {
-		return addressBalanceCache.snapshot, nil
-	}
-
-	descriptors := make([]string, 0, len(normalized))
-	for _, address := range normalized {
-		descriptors = append(descriptors, "addr("+address+")")
-	}
-	response, err := rpcClient.Call("scantxoutset", []interface{}{"start", descriptors})
-	if err != nil {
-		return AddressBalanceSnapshot{}, fmt.Errorf("rpc scantxoutset failed: %w", err)
-	}
-	if response.Error != nil {
-		return AddressBalanceSnapshot{}, fmt.Errorf("rpc scantxoutset error: %v", response.Error)
-	}
-
-	js, err := json.Marshal(response.Result)
-	if err != nil {
-		return AddressBalanceSnapshot{}, fmt.Errorf("marshal scantxoutset result: %w", err)
-	}
-	var result scanTxOutSetResult
-	if err := json.Unmarshal(js, &result); err != nil {
-		return AddressBalanceSnapshot{}, fmt.Errorf("decode scantxoutset result: %w", err)
-	}
-	if !result.Success {
-		return AddressBalanceSnapshot{}, fmt.Errorf("scantxoutset did not complete")
-	}
-	satoshi, err := btcAmountToSatoshi(result.TotalAmount)
-	if err != nil {
-		return AddressBalanceSnapshot{}, fmt.Errorf("parse scantxoutset total amount: %w", err)
-	}
-
-	snapshot := AddressBalanceSnapshot{
-		Satoshi:    satoshi,
-		Height:     result.Height,
-		BlockHash:  strings.TrimSpace(result.BestBlock),
-		ObservedAt: time.Now().UTC(),
-	}
-	addressBalanceCache.key = key
-	addressBalanceCache.snapshot = snapshot
-	return snapshot, nil
-}
-
-func normalizeAddresses(addresses []string) []string {
-	seen := make(map[string]struct{}, len(addresses))
-	result := make([]string, 0, len(addresses))
-	for _, address := range addresses {
-		address = strings.TrimSpace(address)
-		if address == "" {
-			continue
-		}
-		if _, ok := seen[address]; ok {
-			continue
-		}
-		seen[address] = struct{}{}
-		result = append(result, address)
-	}
-	sort.Strings(result)
-	return result
-}
-
-func btcAmountToSatoshi(amount json.Number) (uint64, error) {
-	raw := strings.TrimSpace(amount.String())
-	if raw == "" {
-		return 0, fmt.Errorf("amount is empty")
-	}
-
-	value, _, err := big.ParseFloat(raw, 10, 256, big.ToNearestEven)
-	if err != nil || value.Sign() < 0 {
-		return 0, fmt.Errorf("invalid amount %q", raw)
-	}
-	value.Mul(value, big.NewFloat(100000000))
-	satoshi, ok := new(big.Int).SetString(value.Text('f', 0), 10)
-	if !ok || satoshi.Sign() < 0 || !satoshi.IsUint64() {
-		return 0, fmt.Errorf("amount out of range %q", raw)
-	}
-	return satoshi.Uint64(), nil
 }
 
 func GetRawBlock(blockHash string) ([]byte, error) {
