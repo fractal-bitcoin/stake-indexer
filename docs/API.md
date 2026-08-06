@@ -294,7 +294,9 @@ Returns the reward balance used to decide whether a payout may be signed.
 
 - `user_address`
 - `allocated_amount`: total persisted reward allocation for the address
-- `claimed_amount`: total amount from confirmed claim transactions
+- `claimed_amount`: total amount from confirmed claim transactions; the sum of `claimed_stake_reward` and `claimed_indexer_reward`
+- `claimed_stake_reward`: confirmed rewards claimed for staking
+- `claimed_indexer_reward`: confirmed rewards claimed as an indexer
 - `pending_claimed_amount`: total amount from valid unconfirmed claim transactions
 - `claimable_amount`: `max(allocated_amount - claimed_amount - pending_claimed_amount, 0)`
 - `requested_amount`: the validated `amount` query parameter, or `0` when omitted

@@ -1141,6 +1141,8 @@ func GetUserRewardSummary(c *gin.Context) (rData ResponseData, err error) {
 		UserAddress:          userAddress,
 		AllocatedAmount:      balance.AllocatedAmount,
 		ClaimedAmount:        balance.ClaimedAmount,
+		ClaimedStakeReward:   balance.ClaimedStakeReward,
+		ClaimedIndexerReward: balance.ClaimedIndexerReward,
 		PendingClaimedAmount: balance.PendingClaimedAmount,
 		ClaimableAmount:      claimableAmount,
 		RequestedAmount:      requestedAmount,

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"math"
 	"testing"
 )
@@ -24,5 +25,34 @@ func TestCalculateClaimableRewardAmount(t *testing.T) {
 				t.Fatalf("calculateClaimableRewardAmount(%d, %d, %d) = %d, want %d", tt.allocated, tt.claimed, tt.pending, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestUserRewardSummaryRespIncludesClaimTypeBreakdown(t *testing.T) {
+	encoded, err := json.Marshal(UserRewardSummaryResp{
+		ClaimedAmount:        100,
+		ClaimedStakeReward:   40,
+		ClaimedIndexerReward: 60,
+	})
+	if err != nil {
+		t.Fatalf("marshal user reward summary response: %v", err)
+	}
+
+	var data map[string]json.RawMessage
+	if err := json.Unmarshal(encoded, &data); err != nil {
+		t.Fatalf("decode user reward summary response: %v", err)
+	}
+	for field, want := range map[string]uint64{
+		"claimed_amount":         100,
+		"claimed_stake_reward":   40,
+		"claimed_indexer_reward": 60,
+	} {
+		var got uint64
+		if err := json.Unmarshal(data[field], &got); err != nil {
+			t.Fatalf("decode %s: %v", field, err)
+		}
+		if got != want {
+			t.Fatalf("%s = %d, want %d", field, got, want)
+		}
 	}
 }

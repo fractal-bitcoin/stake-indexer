@@ -108,6 +108,8 @@ type UserRewardSummaryResp struct {
 	UserAddress          string `json:"user_address"`
 	AllocatedAmount      uint64 `json:"allocated_amount"`
 	ClaimedAmount        uint64 `json:"claimed_amount"`
+	ClaimedStakeReward   uint64 `json:"claimed_stake_reward"`
+	ClaimedIndexerReward uint64 `json:"claimed_indexer_reward"`
 	PendingClaimedAmount uint64 `json:"pending_claimed_amount"`
 	ClaimableAmount      uint64 `json:"claimable_amount"`
 	RequestedAmount      uint64 `json:"requested_amount"`
