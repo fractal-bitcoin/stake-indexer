@@ -20,7 +20,11 @@ func GetStakeRewardPoolLiability(ctx context.Context) (StakeRewardPoolLiability,
 	const sqlText = `
 SELECT
     COALESCE((SELECT SUM(allocate_amount) FROM stake_allocated_rewards), 0),
-    COALESCE((SELECT SUM(amount) FROM stake_claimed_rewards), 0),
+    COALESCE((
+        SELECT SUM(amount)
+        FROM stake_claimed_rewards
+        WHERE reward_type IN ($2, $3)
+    ), 0),
     COALESCE((
         SELECT SUM(amount)
         FROM stake_mempool_events
@@ -29,7 +33,7 @@ SELECT
 `
 
 	var liability StakeRewardPoolLiability
-	if err := StakeDB.QueryRowContext(ctx, sqlText, stakeMempoolClaimOp).Scan(
+	if err := StakeDB.QueryRowContext(ctx, sqlText, stakeMempoolClaimOp, StakeRewardTypeStake, StakeRewardTypeIndexer).Scan(
 		&liability.AllocatedAmount,
 		&liability.ClaimedAmount,
 		&liability.PendingClaimedAmount,

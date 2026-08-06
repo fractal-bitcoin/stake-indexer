@@ -26,9 +26,19 @@ type StakeAllocatedReward struct {
 }
 
 const (
-	StakeRewardTypeStake   = "stake"
-	StakeRewardTypeIndexer = "indexer"
+	StakeRewardTypeStake                       = "stake"
+	StakeRewardTypeIndexer                     = "indexer"
+	StakeRewardTypeEarlySupporterRewardStake   = "early_supporter_reward_stake"
+	StakeRewardTypeEarlySupporterRewardIndexer = "early_supporter_reward_indexer"
 )
+
+func IsStandardClaimRewardType(rewardType string) bool {
+	return rewardType == StakeRewardTypeStake || rewardType == StakeRewardTypeIndexer
+}
+
+func IsEarlySupporterClaimRewardType(rewardType string) bool {
+	return rewardType == StakeRewardTypeEarlySupporterRewardStake || rewardType == StakeRewardTypeEarlySupporterRewardIndexer
+}
 
 func ListStakeAllocatedRewardsByUserAddress(ctx context.Context, userAddress string, limit, offset int) ([]StakeAllocatedReward, error) {
 	if StakeDB == nil {

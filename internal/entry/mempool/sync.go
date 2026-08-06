@@ -191,6 +191,9 @@ func RunProtocolSync(deps SyncDeps, tipHeight uint32) (ProtocolSyncStats, error)
 				currentEventTxIDs[event.TxID] = struct{}{}
 				continue
 			}
+			if pgdb.IsEarlySupporterClaimRewardType(item.RewardType) {
+				continue
+			}
 			event.UserAddress, event.Amount = item.UserAddress, item.Amount
 			events = append(events, event)
 			currentEventTxIDs[event.TxID] = struct{}{}

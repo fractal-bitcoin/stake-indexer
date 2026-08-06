@@ -250,6 +250,71 @@ func TestBuildStakeClaimedReward_PayloadIndexerIDOverridesLegacyFix(t *testing.T
 	}
 }
 
+func TestBuildStakeClaimedReward_UsesEarlySupporterStakeRewardType(t *testing.T) {
+	m := newClaimTestManager()
+	tx := &protocolparser.TxSnapshot{
+		TxID:   "tx-early-supporter-stake-claim",
+		TxIdx:  7,
+		Inputs: claimTestInputs(),
+		Outputs: []protocolparser.OutputSnapshot{
+			{OutputIdx: 0, AddressKey: "early-supporter-receiver", Satoshi: 12345},
+		},
+	}
+	payload := &protocolparser.OpReturnPayload{
+		Tag: protocolparser.TagPledgedReward,
+		Fields: map[string]string{
+			protocolparser.OpFieldRewardClaimType: protocolparser.OpValueEarlySupporterReward,
+		},
+	}
+
+	item, err := m.buildStakeClaimedReward(100, tx, payload)
+	if err != nil {
+		t.Fatalf("buildStakeClaimedReward returned error: %v", err)
+	}
+	if item == nil {
+		t.Fatalf("buildStakeClaimedReward returned nil item")
+	}
+	if item.RewardType != pgdb.StakeRewardTypeEarlySupporterRewardStake {
+		t.Fatalf("early supporter stake reward type expected %s, got %s", pgdb.StakeRewardTypeEarlySupporterRewardStake, item.RewardType)
+	}
+	if item.IndexerID != "" {
+		t.Fatalf("early supporter stake claim indexer id expected empty, got %s", item.IndexerID)
+	}
+}
+
+func TestBuildStakeClaimedReward_UsesEarlySupporterIndexerRewardType(t *testing.T) {
+	m := newClaimTestManager()
+	tx := &protocolparser.TxSnapshot{
+		TxID:   "tx-early-supporter-indexer-claim",
+		TxIdx:  7,
+		Inputs: claimTestInputs(),
+		Outputs: []protocolparser.OutputSnapshot{
+			{OutputIdx: 0, AddressKey: "early-supporter-receiver", Satoshi: 12345},
+		},
+	}
+	payload := &protocolparser.OpReturnPayload{
+		Tag: protocolparser.TagPledgedReward,
+		Fields: map[string]string{
+			protocolparser.OpFieldRewardClaimType: protocolparser.OpValueEarlySupporterReward,
+			protocolparser.OpFieldIndexerID:       "12:34",
+		},
+	}
+
+	item, err := m.buildStakeClaimedReward(100, tx, payload)
+	if err != nil {
+		t.Fatalf("buildStakeClaimedReward returned error: %v", err)
+	}
+	if item == nil {
+		t.Fatalf("buildStakeClaimedReward returned nil item")
+	}
+	if item.RewardType != pgdb.StakeRewardTypeEarlySupporterRewardIndexer {
+		t.Fatalf("early supporter indexer reward type expected %s, got %s", pgdb.StakeRewardTypeEarlySupporterRewardIndexer, item.RewardType)
+	}
+	if item.IndexerID != "12:34" {
+		t.Fatalf("early supporter indexer claim indexer id expected 12:34, got %s", item.IndexerID)
+	}
+}
+
 func TestBuildStakeClaimedReward_RejectsNonClaimPayload(t *testing.T) {
 	m := newClaimTestManager()
 	tx := &protocolparser.TxSnapshot{

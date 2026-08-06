@@ -202,6 +202,28 @@ func parseClaimRewardOpReturnContent(content string) (*OpReturnPayload, bool) {
 	if strings.HasPrefix(rest, ",") || strings.HasPrefix(rest, ":") {
 		rest = strings.TrimSpace(rest[1:])
 	}
+	if rest == "" {
+		return &OpReturnPayload{Tag: TagPledgedReward, Fields: make(map[string]string)}, true
+	}
+	if rest == OpValueEarlySupporterReward {
+		return &OpReturnPayload{
+			Tag:    TagPledgedReward,
+			Fields: map[string]string{OpFieldRewardClaimType: OpValueEarlySupporterReward},
+		}, true
+	}
+	if strings.HasPrefix(rest, OpValueEarlySupporterReward+":") {
+		indexerID := strings.TrimSpace(strings.TrimPrefix(rest, OpValueEarlySupporterReward+":"))
+		if !IsIndexerIDHeightTxIdx(indexerID) {
+			return nil, false
+		}
+		return &OpReturnPayload{
+			Tag: TagPledgedReward,
+			Fields: map[string]string{
+				OpFieldRewardClaimType: OpValueEarlySupporterReward,
+				OpFieldIndexerID:       indexerID,
+			},
+		}, true
+	}
 	fields := strings.FieldsFunc(rest, func(r rune) bool {
 		return r == ',' || r == ' ' || r == '\t' || r == '\n' || r == '\r'
 	})

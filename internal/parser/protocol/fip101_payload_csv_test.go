@@ -156,6 +156,57 @@ func TestParseProtocolTxFromModelTx_IndexerClaimRewardFromOpReturn(t *testing.T)
 	}
 }
 
+func TestParseProtocolTxFromModelTx_EarlySupporterClaimRewardFromOpReturn(t *testing.T) {
+	tx := &model.Tx{
+		TxIdHex: "tx-early-supporter-claim",
+		TxOuts: []*model.TxOut{
+			{Satoshi: 3000, PkScript: p2wpkhScript(0x01)},
+			{PkScript: opReturnScript("FIP-101:claim_reward:early_supporter_reward")},
+		},
+	}
+
+	parsed, err := ParseProtocolTxFromModelTx(tx, 3, 100)
+	if err != nil {
+		t.Fatalf("parse protocol tx failed: %v", err)
+	}
+	if parsed == nil || parsed.Payload == nil {
+		t.Fatalf("parsed claim payload is nil")
+	}
+	if got := parsed.Payload.Get(OpFieldRewardClaimType); got != OpValueEarlySupporterReward {
+		t.Fatalf("unexpected reward claim type: %s", got)
+	}
+	if got := parsed.Payload.Get(OpFieldIndexerID); got != "" {
+		t.Fatalf("early supporter stake claim indexer id expected empty, got %s", got)
+	}
+}
+
+func TestParseProtocolTxFromModelTx_EarlySupporterIndexerClaimRewardFromOpReturn(t *testing.T) {
+	tx := &model.Tx{
+		TxIdHex: "tx-early-supporter-indexer-claim",
+		TxOuts: []*model.TxOut{
+			{Satoshi: 4000, PkScript: p2wpkhScript(0x01)},
+			{PkScript: opReturnScript("FIP-101:claim_reward:early_supporter_reward:12:34")},
+		},
+	}
+
+	parsed, err := ParseProtocolTxFromModelTx(tx, 3, 100)
+	if err != nil {
+		t.Fatalf("parse protocol tx failed: %v", err)
+	}
+	if parsed == nil || parsed.Payload == nil {
+		t.Fatalf("parsed claim payload is nil")
+	}
+	if got := parsed.Payload.Get(OpFieldRewardClaimType); got != OpValueEarlySupporterReward {
+		t.Fatalf("unexpected reward claim type: %s", got)
+	}
+	if got := parsed.Payload.Get(OpFieldIndexerID); got != "12:34" {
+		t.Fatalf("unexpected claim indexer id: %s", got)
+	}
+	if parsed.Event == nil || parsed.Event.IndexerID != "12:34" {
+		t.Fatalf("expected event indexer_id 12:34, got %#v", parsed.Event)
+	}
+}
+
 func TestParseFIP101PayloadFromCSV_ClaimRewardRejected(t *testing.T) {
 	payload, _, err := ParseFIP101PayloadFromCSV([]byte("fip101,1,claim_reward"), nil, "", "")
 	if err == nil {

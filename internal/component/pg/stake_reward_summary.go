@@ -31,7 +31,7 @@ SELECT
     COALESCE((
         SELECT SUM(amount)
         FROM stake_claimed_rewards
-        WHERE user_address = $1
+        WHERE user_address = $1 AND reward_type IN ($2, $3)
     ), 0),
     COALESCE((
         SELECT SUM(amount)

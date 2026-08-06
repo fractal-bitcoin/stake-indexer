@@ -11,18 +11,21 @@ type OpReturnPayload struct {
 }
 
 const (
-	OpFieldIndexerID   = "INDEXER_ID"
-	OpFieldIndexerName = "INDEXER_NAME"
-	OpFieldIndexRatio  = "INDEX_RATIO"
-	OpFieldPubKey      = "PUBKEY"
-	OpFieldAddressType = "ADDRESS_TYPE"
-	OpFieldBlockHeight = "BLOCK_HEIGHT"
-	OpFieldBlockHash   = "BLOCK_HASH"
-	OpFieldStakeAddr   = "STAKE_ADDRESS"
-	OpFieldRewardAddr  = "REWARD_ADDR"
-	OpFieldActorPubKey = "ACTOR_PUBKEY"
-	OpFieldActorAddr   = "ACTOR_ADDRESS"
+	OpFieldIndexerID       = "INDEXER_ID"
+	OpFieldIndexerName     = "INDEXER_NAME"
+	OpFieldIndexRatio      = "INDEX_RATIO"
+	OpFieldPubKey          = "PUBKEY"
+	OpFieldAddressType     = "ADDRESS_TYPE"
+	OpFieldBlockHeight     = "BLOCK_HEIGHT"
+	OpFieldBlockHash       = "BLOCK_HASH"
+	OpFieldStakeAddr       = "STAKE_ADDRESS"
+	OpFieldRewardAddr      = "REWARD_ADDR"
+	OpFieldActorPubKey     = "ACTOR_PUBKEY"
+	OpFieldActorAddr       = "ACTOR_ADDRESS"
+	OpFieldRewardClaimType = "REWARD_CLAIM_TYPE"
 )
+
+const OpValueEarlySupporterReward = "early_supporter_reward"
 
 func (p *OpReturnPayload) Get(keys ...string) string {
 	for _, key := range keys {
